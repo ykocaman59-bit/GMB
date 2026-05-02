@@ -2,55 +2,62 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Barkod Kayıt Sistemi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barkod Sistemi</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f4; text-align: center; }
+        .page { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
         .hidden { display: none; }
-        .barcode-item { border-bottom: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-        .barcode-container { display: flex; flex-direction: column; align-items: center; }
-        input { padding: 10px; margin: 5px; width: 80%; }
-        button { padding: 10px 20px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 5px; }
-        .btn-list { background: #007bff; margin-top: 20px; }
+        input { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
+        .btn-blue { background: #007bff; }
+        .barcode-item { border-bottom: 2px solid #eee; margin-bottom: 15px; padding-bottom: 10px; background: white; }
+        svg { max-width: 100%; height: auto; }
     </style>
 </head>
 <body>
 
-    <div id="home-page">
-        <h1>Barkod Oluştur</h1>
-        <input type="text" id="barcodeInput" placeholder="Barkod Numarası (Örn: 103)">
-        <br>
-        <button onclick="saveData()">Tamam (OK)</button>
-        <br>
-        <button class="btn-list" onclick="showList()">Barkodlar Listesine Git</button>
+    <div id="home-page" class="page">
+        <h2>Barkod Kayıt</h2>
+        <input type="number" id="barcodeInput" placeholder="Barkod No (Örn: 103)">
+        <button onclick="saveData()">Sisteme Kayıt Et</button>
+        <button class="btn-blue" onclick="showList()">Barkodları Listele</button>
     </div>
 
-    <div id="list-page" class="hidden">
-        <h1>Kayıtlı Barkodlar</h1>
-        <button onclick="showHome()">← Geri Dön</button>
-        <hr>
-        <div id="barcode-list"></div>
+    <div id="list-page" class="page hidden">
+        <h2>Kayıtlı Barkodlar</h2>
+        <button onclick="showHome()" style="background:#6c757d">← Geri Dön</button>
+        <div id="barcode-list">
+            </div>
     </div>
 
     <script>
-        let db = JSON.parse(localStorage.getItem('myBarcodes')) || [];
+        // Verileri tarayıcı hafızasından al
+        let barcodes = JSON.parse(localStorage.getItem('myList')) || [];
 
         function saveData() {
-            let code = document.getElementById('barcodeInput').value;
-            if(!code) return alert("Lütfen numara girin!");
+            const input = document.getElementById('barcodeInput');
+            const code = input.value;
 
-            let name = prompt("Ürün adını girin (Örn: Kıvırcık):");
-            if(name) {
-                db.push({ code: code, name: name });
-                localStorage.setItem('myBarcodes', JSON.stringify(db));
-                alert("Sisteme kayıt edildi!");
-                document.getElementById('barcodeInput').value = "";
+            if (!code) {
+                alert("Lütfen bir numara girin!");
+                return;
+            }
+
+            const name = prompt("Ürün adını girin:");
+            if (name) {
+                barcodes.push({ code: code, name: name });
+                localStorage.setItem('myList', JSON.stringify(barcodes));
+                alert("Başarıyla kaydedildi!");
+                input.value = ""; // Kutuyu temizle
             }
         }
 
         function showList() {
             document.getElementById('home-page').classList.add('hidden');
             document.getElementById('list-page').classList.remove('hidden');
-            renderBarcodes();
+            render();
         }
 
         function showHome() {
@@ -58,32 +65,37 @@
             document.getElementById('home-page').classList.remove('hidden');
         }
 
-        function renderBarcodes() {
+        function render() {
             const listDiv = document.getElementById('barcode-list');
-            listDiv.innerHTML = ""; // Temizle
+            listDiv.innerHTML = "";
 
-            db.forEach((item, index) => {
-                let div = document.createElement('div');
-                div.className = "barcode-item";
+            if (barcodes.length === 0) {
+                listDiv.innerHTML = "<p>Henüz kayıtlı barkod yok.</p>";
+                return;
+            }
+
+            barcodes.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "barcode-item";
                 
-                // Barkodun çizileceği SVG elementi
-                let svgId = "barcode-" + index;
-                div.innerHTML = `
-                    <div class="barcode-container">
-                        <svg id="${svgId}"></svg>
-                        <p><strong>(${item.code}) ${item.name}</strong></p>
-                    </div>
+                const svgId = "code-" + index;
+                itemDiv.innerHTML = `
+                    <svg id="${svgId}"></svg>
+                    <p><strong>(${item.code}) ${item.name}</strong></p>
                 `;
-                listDiv.appendChild(div);
+                listDiv.appendChild(itemDiv);
 
-                // JsBarcode ile Code 128 oluşturma
-                JsBarcode("#" + svgId, item.code, {
-                    format: "CODE128",
-                    lineColor: "#000",
-                    width: 2,
-                    height: 50,
-                    displayValue: false // Değeri altına manuel yazdığımız için kapattık
-                });
+                // Çizim işlemi
+                try {
+                    JsBarcode("#" + svgId, item.code, {
+                        format: "CODE128",
+                        displayValue: false,
+                        fontSize: 18,
+                        height: 60
+                    });
+                } catch (e) {
+                    console.error("Barkod çizilemedi", e);
+                }
             });
         }
     </script>
