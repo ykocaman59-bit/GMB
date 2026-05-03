@@ -49,8 +49,11 @@ function save() {
 }
 
 function add() {
-  const code = document.getElementById("barcode").value;
-  const name = document.getElementById("name").value;
+  const barcodeInput = document.getElementById("barcode");
+  const nameInput = document.getElementById("name");
+
+  const code = barcodeInput.value;
+  const name = nameInput.value;
 
   if(!code || !name) return alert("Boş bırakma");
 
@@ -60,6 +63,10 @@ function add() {
   data.push({code, name});
   save();
   alert("Eklendi");
+
+  // ✅ EKLEME: inputları temizle
+  barcodeInput.value = "";
+  nameInput.value = "";
 }
 
 function showList() {
@@ -73,6 +80,7 @@ function back() {
   document.getElementById("home").classList.remove("hidden");
 }
 
+// ✅ YENİ: sadece isimleri buton olarak göster
 function render() {
   const q = document.getElementById("search").value.toLowerCase();
   const div = document.getElementById("items");
@@ -80,22 +88,36 @@ function render() {
 
   data.filter(x => x.name.toLowerCase().includes(q))
   .forEach((item,i)=>{
-    const el = document.createElement("div");
-    el.className="item";
-
-    const id = "b"+i;
-
-    el.innerHTML=`
-      <svg id="${id}"></svg>
-      <p>${item.code} - ${item.name}</p>
-      <button onclick="del(${i})">Sil</button>
-      <button onclick="edit(${i})">Düzenle</button>
-    `;
-
-    div.appendChild(el);
-
-    JsBarcode("#"+id, item.code, {displayValue:false});
+    const btn = document.createElement("button");
+    btn.textContent = item.name;
+    btn.onclick = () => showDetail(i);
+    div.appendChild(btn);
   });
+}
+
+// ✅ YENİ: detay ekranı (senin eski görünümün)
+function showDetail(i){
+  const div = document.getElementById("items");
+  const item = data[i];
+
+  div.innerHTML = "";
+
+  const el = document.createElement("div");
+  el.className = "item";
+
+  const id = "b"+i;
+
+  el.innerHTML = `
+    <svg id="${id}"></svg>
+    <p>${item.code} - ${item.name}</p>
+    <button onclick="del(${i})">Sil</button>
+    <button onclick="edit(${i})">Düzenle</button>
+    <button onclick="render()">← Listeye Dön</button>
+  `;
+
+  div.appendChild(el);
+
+  JsBarcode("#"+id, item.code, {displayValue:false});
 }
 
 function del(i){
