@@ -69,11 +69,12 @@ max-width:300px;
 <div id="items"></div>
 </div>
 
-<!-- TERAZİ -->
+<!-- TERAZİ MENÜ -->
 <div id="scaleMenu" class="page hidden">
 <h2>⚖️ Terazi</h2>
 <button onclick="openRegister()">📦 Ürün Kayıt</button>
 <button onclick="openScaleList()">📋 Kod Listesi</button>
+<button onclick="openCalc()">🧮 Hesaplama</button>
 <button onclick="goHome()">← Geri</button>
 </div>
 
@@ -96,14 +97,26 @@ max-width:300px;
 <div id="scaleList"></div>
 </div>
 
-<!-- MESAJ -->
+<!-- HESAPLAMA -->
+<div id="calc" class="page hidden">
+<h3>🧮 Hesaplama</h3>
+
+<input id="c_code" placeholder="Kod">
+<input id="c_gram" placeholder="Gram">
+
+<button onclick="calcScale()">Hesapla</button>
+<button onclick="showScale()">← Geri</button>
+
+<div id="result"></div>
+</div>
+
 <div id="msg"></div>
 
 <!-- MODAL -->
 <div id="modal">
   <div id="modalBox">
     <p>Silinsin mi?</p>
-    <button onclick="confirmYes()">Evet</button>
+    <button onclick="confirmDelete()">Evet</button>
     <button onclick="closeModal()">Hayır</button>
   </div>
 </div>
@@ -114,8 +127,8 @@ max-width:300px;
 let data = JSON.parse(localStorage.getItem("gmb")) || [];
 let scaleData = JSON.parse(localStorage.getItem("scale")) || [];
 
-let deleteIndex = null;
-let deleteType = null;
+let delIndex = null;
+let delType = null;
 
 // ================= SAVE =================
 function save(){
@@ -134,7 +147,7 @@ function msg(t){
   setTimeout(()=>m.style.display="none",2000);
 }
 
-// ================= PAGE =================
+// ================= NAV =================
 function hideAll(){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
 }
@@ -144,15 +157,14 @@ function goHome(){
   home.classList.remove("hidden");
 }
 
-// ================= NORMAL ADD =================
+// ================= NORMAL =================
 function add(){
   let code = barcode.value.trim();
   let name = document.getElementById("name").value.trim();
 
   if(!code || !name) return msg("Boş bırakma");
 
-  // duplicate engel
-  if(data.some(x=>x.code===code)) return msg("Bu barkod zaten var");
+  if(data.some(x=>x.code===code)) return msg("Bu barkod zaten kayıtlı");
 
   data.push({code,name});
   save();
@@ -163,7 +175,7 @@ function add(){
   msg("Ürün eklendi");
 }
 
-// ================= LİSTE =================
+// ================= LIST =================
 function showList(){
   hideAll();
   list.classList.remove("hidden");
@@ -198,18 +210,18 @@ function detail(i){
 
 // ================= DELETE =================
 function askDelete(i,type){
-  deleteIndex=i;
-  deleteType=type;
+  delIndex=i;
+  delType=type;
   modal.style.display="flex";
 }
 
-function confirmYes(){
-  if(deleteType==="normal"){
-    data.splice(deleteIndex,1);
+function confirmDelete(){
+  if(delType==="normal"){
+    data.splice(delIndex,1);
     save();
     render();
   } else {
-    scaleData.splice(deleteIndex,1);
+    scaleData.splice(delIndex,1);
     saveScale();
     renderScale();
   }
@@ -233,7 +245,7 @@ function openRegister(){
   register.classList.remove("hidden");
 }
 
-// prefix logic
+// PREFIX
 function prefix(code){
   return code.length<=3 ? "2700" : "270";
 }
@@ -245,16 +257,15 @@ function saveScale(){
   let code=s_code.value.trim();
   let price=parseFloat(s_price.value);
 
-  if(!name || !code || !price) return msg("Boş bırakma");
+  if(!name||!code||!price) return msg("Boş bırakma");
 
-  // duplicate engel
   if(scaleData.some(x=>x.code===code)) return msg("Zaten kayıtlı");
 
   scaleData.push({
-    name:name,
-    code:code,
+    name,
+    code,
     fullCode:prefix(code)+code,
-    price:price
+    price
   });
 
   saveScale();
@@ -290,6 +301,31 @@ function renderScale(){
 
     scaleList.appendChild(div);
   });
+}
+
+// ================= CALC =================
+function openCalc(){
+  hideAll();
+  calc.classList.remove("hidden");
+  result.innerHTML="";
+}
+
+function calcScale(){
+  let code=c_code.value;
+  let gram=parseFloat(c_gram.value);
+
+  if(!code||!gram) return msg("Boş bırakma");
+
+  let p=scaleData.find(x=>x.code==code);
+  if(!p) return msg("Ürün yok");
+
+  let total=(gram/1000)*p.price;
+
+  result.innerHTML=`
+    <h3>${p.name}</h3>
+    <p>${gram} g</p>
+    <p>${total.toFixed(2)} ₺</p>
+  `;
 }
 
 </script>
