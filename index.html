@@ -13,8 +13,6 @@ body { font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; 
 .hidden { display:none; }
 input { width:90%; padding:10px; margin:5px; }
 button { padding:10px; width:100%; margin:5px 0; }
-.item { background:#fff; margin:10px 0; padding:10px; border-radius:8px; }
-
 #popup {display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);}
 #popupBox {background:white; padding:20px; margin:60% auto; width:80%; border-radius:10px;}
 </style>
@@ -46,10 +44,16 @@ button { padding:10px; width:100%; margin:5px 0; }
 <h2>⚖️ Terazi</h2>
 
 <input id="s_name" placeholder="Ürün adı">
+
+<input id="s_code" placeholder="Ürün kodu (1-4 hane)">
+
+<input id="prefix" disabled style="background:#eee;" placeholder="Prefix otomatik">
+
 <input id="s_price" placeholder="Kg fiyatı">
-<input id="s_code" placeholder="Kod (3-4 hane)">
+
 <input id="s_gram" placeholder="Gramaj">
 
+<button onclick="scaleSave()">Kaydet</button>
 <button onclick="calc()">Hesapla</button>
 <button onclick="back()">← Geri</button>
 
@@ -68,8 +72,11 @@ button { padding:10px; width:100%; margin:5px 0; }
 
 let data = JSON.parse(localStorage.getItem("gmb")) || [];
 
-function save(){ localStorage.setItem("gmb", JSON.stringify(data)); }
+function save(){
+  localStorage.setItem("gmb", JSON.stringify(data));
+}
 
+/* POPUP */
 function showPopup(t){
   popupText.innerText = t;
   popup.style.display = "block";
@@ -79,13 +86,12 @@ function closePopup(){ popup.style.display="none"; }
 /* ANA EKLE */
 function add(){
   let code = barcode.value;
-  let name = nameInput = document.getElementById("name").value;
+  let name = document.getElementById("name").value;
 
   if(!code || !name) return showPopup("Boş bırakma");
-
   if(data.find(x=>x.code===code)) return showPopup("Zaten var");
 
-  data.push({code,name});
+  data.push({code,name,type:"normal"});
   save();
 
   showPopup("Eklendi");
@@ -100,19 +106,87 @@ function showList(){
   list.classList.remove("hidden");
   render();
 }
+
 function showScale(){
   home.classList.add("hidden");
   scale.classList.remove("hidden");
 }
+
 function back(){
   list.classList.add("hidden");
   scale.classList.add("hidden");
   home.classList.remove("hidden");
 }
 
+/* TERAZİ PREFIX */
+function getPrefix(code){
+  if(code.length <= 3) return "2700";
+  if(code.length == 4) return "270";
+  return "";
+}
+
+document.getElementById("s_code").addEventListener("input", function(){
+  prefix.value = getPrefix(this.value);
+});
+
+/* TERAZİ KAYDET */
+function scaleSave(){
+
+  let name = s_name.value;
+  let code = s_code.value;
+  let price = s_price.value;
+
+  if(!name || !code || !price)
+    return showPopup("Boş bırakma");
+
+  let fullCode = getPrefix(code) + code;
+
+  data.push({
+    name,
+    code: fullCode,
+    price,
+    type:"scale"
+  });
+
+  save();
+  showPopup("Terazi ürünü kaydedildi");
+
+  s_name.value="";
+  s_code.value="";
+  s_price.value="";
+  s_gram.value="";
+  prefix.value="";
+}
+
+/* HESAP */
+function calc(){
+
+  let name = s_name.value;
+  let code = s_code.value;
+  let price = parseFloat(s_price.value);
+  let gram = parseFloat(s_gram.value);
+
+  if(!name || !code || !price || !gram)
+    return showPopup("Boş bırakma");
+
+  let fullCode = getPrefix(code) + code;
+
+  let total = (gram / 1000) * price;
+
+  result.innerHTML = `
+    <p><b>${name}</b></p>
+    <p>Kod: ${fullCode}</p>
+    <p>Tutar: ${total.toFixed(2)} ₺</p>
+    <svg id="bar"></svg>
+  `;
+
+  JsBarcode("#bar", fullCode);
+}
+
 /* LİSTE */
 function render(){
   items.innerHTML="";
+
   data.forEach((x,i)=>{
     let b=document.createElement("button");
     b.textContent=x.name;
@@ -123,12 +197,14 @@ function render(){
 
 function detail(i){
   let x=data[i];
+
   items.innerHTML=`
-  <svg id="b"></svg>
-  <p>${x.code} - ${x.name}</p>
-  <button onclick="del(${i})">Sil</button>
-  <button onclick="render()">←</button>
+    <svg id="b"></svg>
+    <p>${x.code} - ${x.name}</p>
+    <button onclick="del(${i})">Sil</button>
+    <button onclick="render()">←</button>
   `;
+
   JsBarcode("#b", x.code);
 }
 
@@ -138,33 +214,6 @@ function del(i){
     save();
     render();
   }
-}
-
-/* TERAZİ HESAP */
-function calc(){
-  let name=s_name.value;
-  let price=parseFloat(s_price.value);
-  let code=s_code.value;
-  let gram=parseFloat(s_gram.value);
-
-  if(!name||!price||!code||!gram) return showPopup("Boş bırakma");
-
-  let fullCode;
-
-  if(code.length==3) fullCode="2700"+code;
-  else if(code.length==4) fullCode="270"+code;
-  else return showPopup("Kod 3 veya 4 haneli olmalı");
-
-  let total=(gram/1000)*price;
-
-  result.innerHTML=`
-    <p>${name}</p>
-    <p>Kod: ${fullCode}</p>
-    <p>Tutar: ${total.toFixed(2)} ₺</p>
-    <svg id="bar"></svg>
-  `;
-
-  JsBarcode("#bar", fullCode);
 }
 
 </script>
