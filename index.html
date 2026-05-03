@@ -22,13 +22,18 @@ button { padding:10px; width:100%; margin:5px 0; }
 </div><!-- TERAZİ MENÜ --><div id="scaleMenu" class="page hidden">
 <h2>⚖️ Terazi</h2>
 <button onclick="openScaleRegister()">📦 Ürün Kayıt</button>
+<button onclick="openScaleList()">📋 Terazi Kod Listesi</button>
 <button onclick="openScaleCalc()">🧮 Hesaplama</button>
 <button onclick="backHome()">← Geri</button>
 </div><!-- TERAZİ KAYIT --><div id="scaleRegister" class="page hidden">
 <h3>📦 Ürün Kayıt</h3><input id="s_name" placeholder="Ürün adı">
-<input id="s_code" placeholder="Ürün kodu">
-<input id="s_price" placeholder="Kg fiyatı"><button onclick="saveScale()">Kaydet</button> <button onclick="showScale()">← Geri</button>
+<input id="s_code" placeholder="Ürün kodu" oninput="updatePrefix()">
+<input id="prefix" placeholder="Prefix" disabled style="background:#eee;">
+<input id="s_price" placeholder="Kg fiyatı"><button onclick="saveScaleProduct()">Kaydet</button> <button onclick="showScale()">← Geri</button>
 
+</div><!-- TERAZİ LİSTE --><div id="scaleListPage" class="page hidden">
+<h3>📋 Terazi Kod Listesi</h3>
+<button onclick="showScale()">← Geri</button>
 <div id="scaleList"></div>
 </div><!-- HESAPLAMA --><div id="scaleCalc" class="page hidden">
 <h3>🧮 Hesaplama</h3><input id="c_code" placeholder="Ürün kodu">
@@ -51,54 +56,28 @@ function saveScale(){ localStorage.setItem("scale", JSON.stringify(scaleData)); 
 function showPopup(t){ popupText.innerText = t; popup.style.display="block"; }
 function closePopup(){ popup.style.display="none"; }
 
-/* NORMAL EKLE */
+/* NORMAL */
 function add(){
   let code = barcode.value;
-  let name = document.getElementById("name").value;
+  let name = name.value;
 
   if(!code || !name) return showPopup("Boş bırakma");
 
   data.push({code,name});
   save();
 
-  showPopup("Eklendi");
-
   barcode.value="";
   document.getElementById("name").value="";
+
+  showPopup("Eklendi");
 }
 
-/* SAYFA GEÇİŞ */
 function showList(){
   home.classList.add("hidden");
   list.classList.remove("hidden");
   render();
 }
 
-function showScale(){
-  home.classList.add("hidden");
-  scaleMenu.classList.remove("hidden");
-}
-
-function backHome(){
-  list.classList.add("hidden");
-  scaleMenu.classList.add("hidden");
-  scaleRegister.classList.add("hidden");
-  scaleCalc.classList.add("hidden");
-  home.classList.remove("hidden");
-}
-
-function openScaleRegister(){
-  scaleMenu.classList.add("hidden");
-  scaleRegister.classList.remove("hidden");
-  renderScale();
-}
-
-function openScaleCalc(){
-  scaleMenu.classList.add("hidden");
-  scaleCalc.classList.remove("hidden");
-}
-
-/* NORMAL LİSTE */
 function render(){
   items.innerHTML="";
   data.forEach(x=>{
@@ -108,12 +87,52 @@ function render(){
   });
 }
 
-/* TERAZİ */
-function getPrefix(code){
-  return code.length<=3 ? "2700" : "270";
+/* SAYFA */
+function showScale(){
+  home.classList.add("hidden");
+  scaleMenu.classList.remove("hidden");
+  scaleRegister.classList.add("hidden");
+  scaleListPage.classList.add("hidden");
+  scaleCalc.classList.add("hidden");
 }
 
-function saveScale(){
+function backHome(){
+  list.classList.add("hidden");
+  scaleMenu.classList.add("hidden");
+  home.classList.remove("hidden");
+}
+
+function openScaleRegister(){
+  scaleMenu.classList.add("hidden");
+  scaleRegister.classList.remove("hidden");
+}
+
+function openScaleList(){
+  scaleMenu.classList.add("hidden");
+  scaleListPage.classList.remove("hidden");
+  renderScale();
+}
+
+function openScaleCalc(){
+  scaleMenu.classList.add("hidden");
+  scaleCalc.classList.remove("hidden");
+  result.innerHTML=""; // geri gelince barkod sil
+}
+
+/* PREFIX */
+function getPrefix(code){
+  if(code.length<=3) return "2700";
+  if(code.length==4) return "270";
+  return "";
+}
+
+function updatePrefix(){
+  let code = s_code.value;
+  prefix.value = getPrefix(code);
+}
+
+/* TERAZİ KAYIT */
+function saveScaleProduct(){
 
   let name = s_name.value;
   let code = s_code.value;
@@ -126,15 +145,15 @@ function saveScale(){
   scaleData.push({name, code, fullCode, price});
   saveScale();
 
-  showPopup("Kaydedildi");
-
+  // kutuları temizle
   s_name.value="";
   s_code.value="";
   s_price.value="";
 
-  renderScale();
+  showPopup("Kaydedildi");
 }
 
+/* TERAZİ LİSTE */
 function renderScale(){
   scaleList.innerHTML="";
 
@@ -146,7 +165,15 @@ function renderScale(){
   });
 }
 
-/* HESAPLAMA */
+/* BARKOD OLUŞTUR */
+function generateBarcode(code, gram){
+  let prefix = getPrefix(code);
+  let p = code.toString().padStart(4,"0");
+  let g = Math.round(gram).toString().padStart(3,"0");
+  return prefix + p + g;
+}
+
+/* HESAP */
 function calcScale(){
 
   let code = c_code.value;
@@ -160,15 +187,17 @@ function calcScale(){
 
   let total = (gram/1000)*product.price;
 
+  let barcode = generateBarcode(code, gram);
+
   result.innerHTML = `
     <h3>${product.name}</h3>
-    <p>Barkod: ${product.fullCode}</p>
-    <p>Gramaj: ${gram}</p>
+    <p>Barkod: ${barcode}</p>
+    <p>Gram: ${gram}</p>
     <p>Tutar: ${total.toFixed(2)} ₺</p>
     <svg id="bar"></svg>
   `;
 
-  JsBarcode("#bar", product.fullCode);
+  JsBarcode("#bar", barcode);
 }
 
 </script></body>
