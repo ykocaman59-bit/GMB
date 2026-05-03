@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GMB POS</title>
+<title>GMB</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 
@@ -52,33 +52,33 @@ max-width:300px;
 
 <!-- ANA -->
 <div id="home" class="page">
-<h2>📦 GMB POS</h2>
+<h2>📦 GMB</h2>
 
 <input id="barcode" placeholder="Barkod">
 <input id="name" placeholder="Ürün adı">
 
-<button onclick="addProduct()">Kaydet</button>
-<button onclick="openList()">Liste</button>
-<button onclick="openScaleMenu()">⚖️ Terazi</button>
+<button onclick="add()">Kaydet</button>
+<button onclick="showList()">Liste</button>
+<button onclick="showScale()">⚖️ Terazi</button>
 </div>
 
 <!-- LİSTE -->
-<div id="listPage" class="page hidden">
+<div id="list" class="page hidden">
 <h2>📋 Liste</h2>
 <button onclick="goHome()">← Geri</button>
-<div id="list"></div>
+<div id="items"></div>
 </div>
 
-<!-- TERAZİ MENÜ -->
+<!-- TERAZİ -->
 <div id="scaleMenu" class="page hidden">
 <h2>⚖️ Terazi</h2>
-<button onclick="openScaleRegister()">📦 Kayıt</button>
-<button onclick="openScaleList()">📋 Liste</button>
+<button onclick="openRegister()">📦 Ürün Kayıt</button>
+<button onclick="openScaleList()">📋 Kod Listesi</button>
 <button onclick="goHome()">← Geri</button>
 </div>
 
 <!-- TERAZİ KAYIT -->
-<div id="scaleRegister" class="page hidden">
+<div id="register" class="page hidden">
 <h3>📦 Terazi Kayıt</h3>
 
 <input id="s_name" placeholder="Ürün adı">
@@ -86,13 +86,13 @@ max-width:300px;
 <input id="s_price" placeholder="Kg fiyatı">
 
 <button onclick="saveScale()">Kaydet</button>
-<button onclick="openScaleMenu()">← Geri</button>
+<button onclick="showScale()">← Geri</button>
 </div>
 
 <!-- TERAZİ LİSTE -->
 <div id="scaleListPage" class="page hidden">
 <h3>📋 Terazi Listesi</h3>
-<button onclick="openScaleMenu()">← Geri</button>
+<button onclick="showScale()">← Geri</button>
 <div id="scaleList"></div>
 </div>
 
@@ -102,31 +102,31 @@ max-width:300px;
 <!-- MODAL -->
 <div id="modal">
   <div id="modalBox">
-    <p id="modalText">Silinsin mi?</p>
-    <button onclick="confirmDelete()">Evet</button>
+    <p>Silinsin mi?</p>
+    <button onclick="confirmYes()">Evet</button>
     <button onclick="closeModal()">Hayır</button>
   </div>
 </div>
 
 <script>
 
-// ---------------- DATA ----------------
-let products = JSON.parse(localStorage.getItem("products")) || [];
-let scales = JSON.parse(localStorage.getItem("scales")) || [];
+// ================= DATA =================
+let data = JSON.parse(localStorage.getItem("gmb")) || [];
+let scaleData = JSON.parse(localStorage.getItem("scale")) || [];
 
-let delIndex = null;
-let delType = null;
+let deleteIndex = null;
+let deleteType = null;
 
-// ---------------- SAVE ----------------
-function saveProducts(){
-  localStorage.setItem("products", JSON.stringify(products));
+// ================= SAVE =================
+function save(){
+  localStorage.setItem("gmb", JSON.stringify(data));
 }
 
-function saveScales(){
-  localStorage.setItem("scales", JSON.stringify(scales));
+function saveScale(){
+  localStorage.setItem("scale", JSON.stringify(scaleData));
 }
 
-// ---------------- MESSAGE ----------------
+// ================= MSG =================
 function msg(t){
   let m=document.getElementById("msg");
   m.innerText=t;
@@ -134,7 +134,7 @@ function msg(t){
   setTimeout(()=>m.style.display="none",2000);
 }
 
-// ---------------- NAV ----------------
+// ================= PAGE =================
 function hideAll(){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
 }
@@ -144,73 +144,74 @@ function goHome(){
   home.classList.remove("hidden");
 }
 
-// ---------------- NORMAL PRODUCT ----------------
-function addProduct(){
+// ================= NORMAL ADD =================
+function add(){
   let code = barcode.value.trim();
   let name = document.getElementById("name").value.trim();
 
   if(!code || !name) return msg("Boş bırakma");
 
-  if(products.some(p=>p.code===code)) return msg("Bu barkod zaten var");
+  // duplicate engel
+  if(data.some(x=>x.code===code)) return msg("Bu barkod zaten var");
 
-  products.push({code,name});
-  saveProducts();
+  data.push({code,name});
+  save();
 
   barcode.value="";
-  name.value="";
+  document.getElementById("name").value="";
 
   msg("Ürün eklendi");
 }
 
-// ---------------- LIST ----------------
-function openList(){
+// ================= LİSTE =================
+function showList(){
   hideAll();
-  listPage.classList.remove("hidden");
-  renderProducts();
+  list.classList.remove("hidden");
+  render();
 }
 
-function renderProducts(){
-  list.innerHTML="";
+function render(){
+  items.innerHTML="";
 
-  products.forEach((p,i)=>{
+  data.forEach((x,i)=>{
     let b=document.createElement("button");
-    b.textContent=p.name;
-    b.onclick=()=>showProduct(i);
-    list.appendChild(b);
+    b.textContent=x.name;
+    b.onclick=()=>detail(i);
+    items.appendChild(b);
   });
 }
 
-function showProduct(i){
-  let p=products[i];
+function detail(i){
+  let x=data[i];
 
-  list.innerHTML=`
-    <svg id="bc"></svg>
-    <p>${p.code}</p>
-    <p>${p.name}</p>
+  items.innerHTML=`
+    <svg id="b"></svg>
+    <p>${x.code}</p>
+    <p>${x.name}</p>
 
-    <button onclick="askDelete(${i},'product')">Sil</button>
-    <button onclick="renderProducts()">←</button>
+    <button onclick="askDelete(${i},'normal')">Sil</button>
+    <button onclick="render()">←</button>
   `;
 
-  JsBarcode("#bc", p.code);
+  JsBarcode("#b", x.code);
 }
 
-// ---------------- DELETE MODAL ----------------
+// ================= DELETE =================
 function askDelete(i,type){
-  delIndex=i;
-  delType=type;
+  deleteIndex=i;
+  deleteType=type;
   modal.style.display="flex";
 }
 
-function confirmDelete(){
-  if(delType==="product"){
-    products.splice(delIndex,1);
-    saveProducts();
-    renderProducts();
+function confirmYes(){
+  if(deleteType==="normal"){
+    data.splice(deleteIndex,1);
+    save();
+    render();
   } else {
-    scales.splice(delIndex,1);
-    saveScales();
-    renderScales();
+    scaleData.splice(deleteIndex,1);
+    saveScale();
+    renderScale();
   }
 
   closeModal();
@@ -221,71 +222,73 @@ function closeModal(){
   modal.style.display="none";
 }
 
-// ---------------- SCALE ----------------
-function openScaleMenu(){
+// ================= TERAZİ =================
+function showScale(){
   hideAll();
   scaleMenu.classList.remove("hidden");
 }
 
-function openScaleRegister(){
+function openRegister(){
   hideAll();
-  scaleRegister.classList.remove("hidden");
+  register.classList.remove("hidden");
 }
 
-// PREFIX RULE
+// prefix logic
 function prefix(code){
   return code.length<=3 ? "2700" : "270";
 }
 
-// ---------------- SCALE SAVE ----------------
+// ================= SCALE SAVE =================
 function saveScale(){
+
   let name=s_name.value.trim();
   let code=s_code.value.trim();
   let price=parseFloat(s_price.value);
 
-  if(!name||!code||!price) return msg("Boş bırakma");
+  if(!name || !code || !price) return msg("Boş bırakma");
 
-  if(scales.some(s=>s.code===code)) return msg("Zaten kayıtlı");
+  // duplicate engel
+  if(scaleData.some(x=>x.code===code)) return msg("Zaten kayıtlı");
 
-  scales.push({
-    name,
-    code,
-    full: prefix(code)+code,
-    price
+  scaleData.push({
+    name:name,
+    code:code,
+    fullCode:prefix(code)+code,
+    price:price
   });
 
-  saveScales();
+  saveScale();
 
   s_name.value="";
   s_code.value="";
   s_price.value="";
 
-  msg("Kaydedildi");
+  msg("Ürün eklendi");
 }
 
-// ---------------- SCALE LIST ----------------
+// ================= SCALE LIST =================
 function openScaleList(){
   hideAll();
   scaleListPage.classList.remove("hidden");
-  renderScales();
+  renderScale();
 }
 
-function renderScales(){
+function renderScale(){
   scaleList.innerHTML="";
 
-  scales.forEach((s,i)=>{
-    let d=document.createElement("div");
-    d.className="item";
+  scaleData.forEach((x,i)=>{
+    let div=document.createElement("div");
+    div.className="item";
 
-    d.innerHTML=`
-      <b>${s.name}</b><br>
-      ${s.code}<br>
-      ${s.price} ₺<br>
+    div.innerHTML=`
+      <b>${x.name}</b><br>
+      ${x.code}<br>
+      ${x.price} ₺<br>
 
       <button onclick="askDelete(${i},'scale')">Sil</button>
     `;
 
-    scaleList.appendChild(d);
+    scaleList.appendChild(div);
   });
 }
 
