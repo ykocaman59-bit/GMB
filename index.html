@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GMB</title>
+<title>GMB POS</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 
@@ -52,7 +52,7 @@ max-width:300px;
 
 <!-- ANA -->
 <div id="home" class="page">
-<h2>📦 GMB</h2>
+<h2>📦 GMB POS</h2>
 
 <input id="barcode" placeholder="Barkod">
 <input id="name" placeholder="Ürün adı">
@@ -69,16 +69,16 @@ max-width:300px;
 <div id="items"></div>
 </div>
 
-<!-- TERAZİ MENÜ -->
+<!-- TERAZİ -->
 <div id="scaleMenu" class="page hidden">
 <h2>⚖️ Terazi</h2>
 <button onclick="openRegister()">📦 Ürün Kayıt</button>
 <button onclick="openScaleList()">📋 Kod Listesi</button>
-<button onclick="openCalc()">🧮 Hesaplama</button>
+<button onclick="openCalc()">🧮 Hesapla</button>
 <button onclick="goHome()">← Geri</button>
 </div>
 
-<!-- TERAZİ KAYIT -->
+<!-- KAYIT -->
 <div id="register" class="page hidden">
 <h3>📦 Terazi Kayıt</h3>
 
@@ -90,7 +90,7 @@ max-width:300px;
 <button onclick="showScale()">← Geri</button>
 </div>
 
-<!-- TERAZİ LİSTE -->
+<!-- LİSTE -->
 <div id="scaleListPage" class="page hidden">
 <h3>📋 Terazi Listesi</h3>
 <button onclick="showScale()">← Geri</button>
@@ -112,32 +112,15 @@ max-width:300px;
 
 <div id="msg"></div>
 
-<!-- MODAL -->
-<div id="modal">
-  <div id="modalBox">
-    <p>Silinsin mi?</p>
-    <button onclick="confirmDelete()">Evet</button>
-    <button onclick="closeModal()">Hayır</button>
-  </div>
-</div>
-
 <script>
 
 // ================= DATA =================
 let data = JSON.parse(localStorage.getItem("gmb")) || [];
 let scaleData = JSON.parse(localStorage.getItem("scale")) || [];
 
-let delIndex = null;
-let delType = null;
-
 // ================= SAVE =================
-function save(){
-  localStorage.setItem("gmb", JSON.stringify(data));
-}
-
-function saveScale(){
-  localStorage.setItem("scale", JSON.stringify(scaleData));
-}
+function save(){ localStorage.setItem("gmb", JSON.stringify(data)); }
+function saveScale(){ localStorage.setItem("scale", JSON.stringify(scaleData)); }
 
 // ================= MSG =================
 function msg(t){
@@ -164,7 +147,7 @@ function add(){
 
   if(!code || !name) return msg("Boş bırakma");
 
-  if(data.some(x=>x.code===code)) return msg("Bu barkod zaten kayıtlı");
+  if(data.some(x=>x.code===code)) return msg("Zaten var");
 
   data.push({code,name});
   save();
@@ -172,69 +155,10 @@ function add(){
   barcode.value="";
   document.getElementById("name").value="";
 
-  msg("Ürün eklendi");
+  msg("Eklendi");
 }
 
-// ================= LIST =================
-function showList(){
-  hideAll();
-  list.classList.remove("hidden");
-  render();
-}
-
-function render(){
-  items.innerHTML="";
-
-  data.forEach((x,i)=>{
-    let b=document.createElement("button");
-    b.textContent=x.name;
-    b.onclick=()=>detail(i);
-    items.appendChild(b);
-  });
-}
-
-function detail(i){
-  let x=data[i];
-
-  items.innerHTML=`
-    <svg id="b"></svg>
-    <p>${x.code}</p>
-    <p>${x.name}</p>
-
-    <button onclick="askDelete(${i},'normal')">Sil</button>
-    <button onclick="render()">←</button>
-  `;
-
-  JsBarcode("#b", x.code);
-}
-
-// ================= DELETE =================
-function askDelete(i,type){
-  delIndex=i;
-  delType=type;
-  modal.style.display="flex";
-}
-
-function confirmDelete(){
-  if(delType==="normal"){
-    data.splice(delIndex,1);
-    save();
-    render();
-  } else {
-    scaleData.splice(delIndex,1);
-    saveScale();
-    renderScale();
-  }
-
-  closeModal();
-  msg("Silindi");
-}
-
-function closeModal(){
-  modal.style.display="none";
-}
-
-// ================= TERAZİ =================
+// ================= SCALE MENU =================
 function showScale(){
   hideAll();
   scaleMenu.classList.remove("hidden");
@@ -245,9 +169,9 @@ function openRegister(){
   register.classList.remove("hidden");
 }
 
-// PREFIX
-function prefix(code){
-  return code.length<=3 ? "2700" : "270";
+// ================= PREFIX =================
+function getPrefix(code){
+  return code.length <= 3 ? "2700" : "270";
 }
 
 // ================= SCALE SAVE =================
@@ -264,8 +188,8 @@ function saveScale(){
   scaleData.push({
     name,
     code,
-    fullCode:prefix(code)+code,
-    price
+    price,
+    plu:getPrefix(code)+code
   });
 
   saveScale();
@@ -274,10 +198,10 @@ function saveScale(){
   s_code.value="";
   s_price.value="";
 
-  msg("Ürün eklendi");
+  msg("Kaydedildi");
 }
 
-// ================= SCALE LIST =================
+// ================= LIST =================
 function openScaleList(){
   hideAll();
   scaleListPage.classList.remove("hidden");
@@ -293,17 +217,15 @@ function renderScale(){
 
     div.innerHTML=`
       <b>${x.name}</b><br>
-      ${x.code}<br>
-      ${x.price} ₺<br>
-
-      <button onclick="askDelete(${i},'scale')">Sil</button>
+      PLU: ${x.plu}<br>
+      ${x.price} ₺
     `;
 
     scaleList.appendChild(div);
   });
 }
 
-// ================= CALC =================
+// ================= CALC + DYNAMIC BARCODE =================
 function openCalc(){
   hideAll();
   calc.classList.remove("hidden");
@@ -311,21 +233,29 @@ function openCalc(){
 }
 
 function calcScale(){
-  let code=c_code.value;
-  let gram=parseFloat(c_gram.value);
 
-  if(!code||!gram) return msg("Boş bırakma");
+  let code = c_code.value.trim();
+  let gram = parseFloat(c_gram.value);
 
-  let p=scaleData.find(x=>x.code==code);
+  if(!code || !gram) return msg("Boş bırakma");
+
+  let p = scaleData.find(x=>x.code==code);
   if(!p) return msg("Ürün yok");
 
-  let total=(gram/1000)*p.price;
+  let base = getPrefix(code)+code;
+  let total = (gram/1000)*p.price;
+
+  let barcode = base + gram.toString().padStart(4,"0");
 
   result.innerHTML=`
     <h3>${p.name}</h3>
-    <p>${gram} g</p>
-    <p>${total.toFixed(2)} ₺</p>
+    <p>Gram: ${gram}</p>
+    <p>Tutar: ${total.toFixed(2)} ₺</p>
+    <p>Barcode: ${barcode}</p>
+    <svg id="bar"></svg>
   `;
+
+  JsBarcode("#bar", barcode);
 }
 
 </script>
