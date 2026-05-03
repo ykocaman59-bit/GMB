@@ -1,222 +1,148 @@
-<!DOCTYPE html>
-<html lang="tr">
+<!DOCTYPE html><html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GMB</title>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
-
-<style>
+<title>GMB - Terazi Sistem</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script><style>
 body { font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; }
-.page { background:white; padding:20px; border-radius:10px; max-width:400px; margin:auto; }
+.page { background:white; padding:20px; border-radius:10px; max-width:420px; margin:auto; }
 .hidden { display:none; }
 input { width:90%; padding:10px; margin:5px; }
 button { padding:10px; width:100%; margin:5px 0; }
+.item { background:#eee; margin:8px 0; padding:10px; border-radius:8px; }
 #popup {display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);}
 #popupBox {background:white; padding:20px; margin:60% auto; width:80%; border-radius:10px;}
-</style>
-</head>
+</style></head><body><!-- ANA --><div id="home" class="page">
+<h2>📦 GMB</h2><button onclick="openScale()">⚖️ Terazi Sistemi</button>
 
-<body>
-
-<!-- ANA -->
-<div id="home" class="page">
-<h2>📦 GMB</h2>
-
-<input id="barcode" placeholder="Barkod">
-<input id="name" placeholder="Ürün adı">
-
-<button onclick="add()">Kaydet</button>
-<button onclick="showList()">Liste</button>
-<button onclick="showScale()">⚖️ Terazi</button>
-</div>
-
-<!-- LİSTE -->
-<div id="list" class="page hidden">
-<h2>📋 Liste</h2>
-<button onclick="back()">← Geri</button>
-<div id="items"></div>
-</div>
-
-<!-- TERAZİ -->
-<div id="scale" class="page hidden">
+</div><!-- TERAZİ MENÜ --><div id="scaleMenu" class="page hidden">
 <h2>⚖️ Terazi</h2>
+<button onclick="openRegister()">📦 Ürün Kayıt</button>
+<button onclick="openCalc()">🧮 Hesaplama</button>
+<button onclick="backHome()">← Geri</button>
+</div><!-- KAYIT --><div id="register" class="page hidden">
+<h3>📦 Ürün Kayıt</h3><input id="p_name" placeholder="Ürün adı">
+<input id="p_code" placeholder="Ürün kodu (örn: 163)">
+<input id="p_price" placeholder="Kg fiyatı"><button onclick="saveProduct()">Kaydet</button> <button onclick="openScale()">← Geri</button>
 
-<input id="s_name" placeholder="Ürün adı">
-
-<input id="s_code" placeholder="Ürün kodu (1-4 hane)">
-
-<input id="prefix" disabled style="background:#eee;" placeholder="Prefix otomatik">
-
-<input id="s_price" placeholder="Kg fiyatı">
-
-<input id="s_gram" placeholder="Gramaj">
-
-<button onclick="scaleSave()">Kaydet</button>
-<button onclick="calc()">Hesapla</button>
-<button onclick="back()">← Geri</button>
+<div id="productList"></div>
+</div><!-- HESAPLAMA --><div id="calc" class="page hidden">
+<h3>🧮 Hesaplama</h3><input id="c_code" placeholder="Ürün kodu">
+<input id="c_gram" placeholder="Gramaj (örn: 171)"><button onclick="calculate()">Hesapla</button> <button onclick="openScale()">← Geri</button>
 
 <div id="result"></div>
-</div>
-
-<!-- POPUP -->
-<div id="popup">
+</div><!-- POPUP --><div id="popup">
   <div id="popupBox">
     <p id="popupText"></p>
     <button onclick="closePopup()">Tamam</button>
   </div>
-</div>
+</div><script>
 
-<script>
+let products = JSON.parse(localStorage.getItem("products")) || [];
 
-let data = JSON.parse(localStorage.getItem("gmb")) || [];
-
-function save(){
-  localStorage.setItem("gmb", JSON.stringify(data));
+function saveData(){
+  localStorage.setItem("products", JSON.stringify(products));
 }
 
-/* POPUP */
 function showPopup(t){
   popupText.innerText = t;
   popup.style.display = "block";
 }
 function closePopup(){ popup.style.display="none"; }
 
-/* ANA EKLE */
-function add(){
-  let code = barcode.value;
-  let name = document.getElementById("name").value;
-
-  if(!code || !name) return showPopup("Boş bırakma");
-  if(data.find(x=>x.code===code)) return showPopup("Zaten var");
-
-  data.push({code,name,type:"normal"});
-  save();
-
-  showPopup("Eklendi");
-
-  barcode.value="";
-  document.getElementById("name").value="";
-}
-
-/* SAYFA */
-function showList(){
+function openScale(){
   home.classList.add("hidden");
-  list.classList.remove("hidden");
-  render();
+  scaleMenu.classList.remove("hidden");
+  register.classList.add("hidden");
+  calc.classList.add("hidden");
 }
 
-function showScale(){
-  home.classList.add("hidden");
-  scale.classList.remove("hidden");
-}
-
-function back(){
-  list.classList.add("hidden");
-  scale.classList.add("hidden");
+function backHome(){
+  scaleMenu.classList.add("hidden");
   home.classList.remove("hidden");
 }
 
-/* TERAZİ PREFIX */
-function getPrefix(code){
-  if(code.length <= 3) return "2700";
-  if(code.length == 4) return "270";
-  return "";
+function openRegister(){
+  scaleMenu.classList.add("hidden");
+  register.classList.remove("hidden");
+  renderList();
 }
 
-document.getElementById("s_code").addEventListener("input", function(){
-  prefix.value = getPrefix(this.value);
-});
+function openCalc(){
+  scaleMenu.classList.add("hidden");
+  calc.classList.remove("hidden");
+}
 
-/* TERAZİ KAYDET */
-function scaleSave(){
+function getBarcode(code){
+  return "2700" + code.toString().padStart(4,"0");
+}
 
-  let name = s_name.value;
-  let code = s_code.value;
-  let price = s_price.value;
+function saveProduct(){
 
-  if(!name || !code || !price)
-    return showPopup("Boş bırakma");
+  let name = p_name.value;
+  let code = p_code.value;
+  let price = parseFloat(p_price.value);
 
-  let fullCode = getPrefix(code) + code;
+  if(!name || !code || !price) return showPopup("Boş bırakma");
 
-  data.push({
+  products.push({
     name,
-    code: fullCode,
-    price,
-    type:"scale"
+    code: code,
+    price: price
   });
 
-  save();
-  showPopup("Terazi ürünü kaydedildi");
+  saveData();
 
-  s_name.value="";
-  s_code.value="";
-  s_price.value="";
-  s_gram.value="";
-  prefix.value="";
+  p_name.value="";
+  p_code.value="";
+  p_price.value="";
+
+  showPopup("Ürün kaydedildi");
+  renderList();
 }
 
-/* HESAP */
-function calc(){
+function renderList(){
+  productList.innerHTML="";
 
-  let name = s_name.value;
-  let code = s_code.value;
-  let price = parseFloat(s_price.value);
-  let gram = parseFloat(s_gram.value);
+  products.forEach(p=>{
+    let div=document.createElement("div");
+    div.className="item";
 
-  if(!name || !code || !price || !gram)
-    return showPopup("Boş bırakma");
+    div.innerHTML=`
+      <b>${p.name}</b><br>
+      Kod: ${getBarcode(p.code)}<br>
+      Kg Fiyat: ${p.price} ₺
+    `;
 
-  let fullCode = getPrefix(code) + code;
+    productList.appendChild(div);
+  });
+}
 
-  let total = (gram / 1000) * price;
+function calculate(){
+
+  let code = c_code.value;
+  let gram = parseFloat(c_gram.value);
+
+  if(!code || !gram) return showPopup("Boş bırakma");
+
+  let product = products.find(p => p.code == code);
+
+  if(!product) return showPopup("Ürün bulunamadı");
+
+  let kg = gram / 1000;
+  let total = kg * product.price;
+
+  let barcode = getBarcode(code);
 
   result.innerHTML = `
-    <p><b>${name}</b></p>
-    <p>Kod: ${fullCode}</p>
+    <h3>${product.name}</h3>
+    <p>Barkod: ${barcode}</p>
+    <p>Gramaj: ${gram}g</p>
     <p>Tutar: ${total.toFixed(2)} ₺</p>
     <svg id="bar"></svg>
   `;
 
-  JsBarcode("#bar", fullCode);
+  JsBarcode("#bar", barcode);
 }
 
-/* LİSTE */
-function render(){
-  items.innerHTML="";
-
-  data.forEach((x,i)=>{
-    let b=document.createElement("button");
-    b.textContent=x.name;
-    b.onclick=()=>detail(i);
-    items.appendChild(b);
-  });
-}
-
-function detail(i){
-  let x=data[i];
-
-  items.innerHTML=`
-    <svg id="b"></svg>
-    <p>${x.code} - ${x.name}</p>
-    <button onclick="del(${i})">Sil</button>
-    <button onclick="render()">←</button>
-  `;
-
-  JsBarcode("#b", x.code);
-}
-
-function del(i){
-  if(confirm("Silinsin mi?")){
-    data.splice(i,1);
-    save();
-    render();
-  }
-}
-
-</script>
-
-</body>
+</script></body>
 </html>
