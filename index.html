@@ -185,7 +185,8 @@ function calcScale(){
 
   if(!product) return showPopup("Ürün yok");
 
-  let total = (gram/1000)*product.price;
+  let price = parseFloat(product.price);
+  let total = (gram/1000) * price;
 
   let barcode = generateBarcode(code, gram);
 
