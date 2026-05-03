@@ -58,12 +58,20 @@ function closePopup(){ popup.style.display="none"; }
 
 /* NORMAL */
 function add(){
-  let code = barcode.value;
-  let name = name.value;
+  let code = document.getElementById("barcode").value;
+  let name = document.getElementById("name").value;
 
   if(!code || !name) return showPopup("Boş bırakma");
 
   data.push({code,name});
+  save();
+
+  // kutuları temizle
+  document.getElementById("barcode").value="";
+  document.getElementById("name").value="";
+
+  showPopup("Ürün listeye eklendi");
+});
   save();
 
   barcode.value="";
