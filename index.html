@@ -15,7 +15,7 @@ input { width:90%; padding:10px; margin:5px; }
 button { padding:10px; width:100%; margin:5px 0; cursor:pointer; }
 .item { background:#fff; margin:10px 0; padding:10px; border-radius:8px; }
 
-/* Popup */
+/* POPUP */
 #popup {
   display:none;
   position:fixed;
@@ -28,7 +28,7 @@ button { padding:10px; width:100%; margin:5px 0; cursor:pointer; }
   padding:20px;
   border-radius:10px;
   width:80%;
-  margin:60% auto;
+  margin:50% auto;
 }
 </style>
 </head>
@@ -43,132 +43,142 @@ button { padding:10px; width:100%; margin:5px 0; cursor:pointer; }
 
 <button onclick="add()">Kaydet</button>
 <button onclick="showList()">Liste</button>
-
 </div>
 
 <div id="list" class="page hidden">
 <h2>📋 Liste</h2>
 <input id="search" placeholder="Ara..." oninput="render()">
 <button onclick="back()">← Geri</button>
-
 <div id="items"></div>
 </div>
 
 <!-- POPUP -->
 <div id="popup">
   <div id="popupBox">
-    <p id="popupText"></p>
-    <button onclick="closePopup()">Tamam</button>
+    <p id="popupTitle"></p>
+    <div id="popupContent"></div>
   </div>
 </div>
 
 <script>
 
 let data = JSON.parse(localStorage.getItem("gmb")) || [];
+let selectedIndex = null;
 
 function save() {
   localStorage.setItem("gmb", JSON.stringify(data));
 }
 
-/* POPUP */
-function showPopup(text){
-  document.getElementById("popupText").innerText = text;
+/* POPUP GENEL */
+function openPopup(title, contentHTML){
+  document.getElementById("popupTitle").innerText = title;
+  document.getElementById("popupContent").innerHTML = contentHTML;
   document.getElementById("popup").style.display = "block";
 }
+
 function closePopup(){
   document.getElementById("popup").style.display = "none";
 }
 
 /* EKLE */
 function add() {
-  const barcodeInput = document.getElementById("barcode");
-  const nameInput = document.getElementById("name");
+  const code = barcode.value;
+  const name = document.getElementById("name").value;
 
-  const code = barcodeInput.value;
-  const name = nameInput.value;
-
-  if(!code || !name) return showPopup("Boş alan bırakma");
+  if(!code || !name) return openPopup("Uyarı","<p>Boş alan bırakma</p><button onclick='closePopup()'>Tamam</button>");
 
   if(data.find(x => x.code === code))
-    return showPopup("Bu barkod zaten kayıtlı");
+    return openPopup("Uyarı","<p>Bu barkod zaten kayıtlı</p><button onclick='closePopup()'>Tamam</button>");
 
   data.push({code, name});
   save();
 
-  showPopup("Kayıt eklendi");
+  openPopup("Başarılı","<p>Kayıt eklendi</p><button onclick='closePopup()'>Tamam</button>");
 
-  barcodeInput.value = "";
-  nameInput.value = "";
+  barcode.value = "";
+  document.getElementById("name").value = "";
 }
 
-/* SAYFA GEÇİŞ */
+/* SAYFA */
 function showList() {
-  document.getElementById("home").classList.add("hidden");
-  document.getElementById("list").classList.remove("hidden");
+  home.classList.add("hidden");
+  list.classList.remove("hidden");
   render();
 }
 function back() {
-  document.getElementById("list").classList.add("hidden");
-  document.getElementById("home").classList.remove("hidden");
+  list.classList.add("hidden");
+  home.classList.remove("hidden");
 }
 
 /* LİSTE */
 function render() {
-  const q = document.getElementById("search").value.toLowerCase();
-  const div = document.getElementById("items");
-  div.innerHTML = "";
+  const q = search.value.toLowerCase();
+  items.innerHTML = "";
 
   data.filter(x => x.name.toLowerCase().includes(q))
   .forEach((item,i)=>{
     const btn = document.createElement("button");
     btn.textContent = item.name;
     btn.onclick = () => showDetail(i);
-    div.appendChild(btn);
+    items.appendChild(btn);
   });
 }
 
 /* DETAY */
 function showDetail(i){
-  const div = document.getElementById("items");
   const item = data[i];
-
-  div.innerHTML = "";
-
-  const el = document.createElement("div");
-  el.className = "item";
+  items.innerHTML = "";
 
   const id = "b"+i;
 
-  el.innerHTML = `
-    <svg id="${id}"></svg>
-    <p>${item.code} - ${item.name}</p>
-    <button onclick="del(${i})">Sil</button>
-    <button onclick="edit(${i})">Düzenle</button>
-    <button onclick="render()">← Listeye Dön</button>
+  items.innerHTML = `
+    <div class="item">
+      <svg id="${id}"></svg>
+      <p>${item.code} - ${item.name}</p>
+      <button onclick="askDelete(${i})">Sil</button>
+      <button onclick="openEdit(${i})">Düzenle</button>
+      <button onclick="render()">← Listeye Dön</button>
+    </div>
   `;
-
-  div.appendChild(el);
 
   JsBarcode("#"+id, item.code, {displayValue:false});
 }
 
 /* SİL */
-function del(i){
-  if(confirm("Silinsin mi?")){
-    data.splice(i,1);
-    save();
-    render();
-  }
+function askDelete(i){
+  selectedIndex = i;
+  openPopup("Silinsin mi?",
+    `<button onclick="confirmDelete()">Evet</button>
+     <button onclick="closePopup()">Hayır</button>`
+  );
+}
+
+function confirmDelete(){
+  data.splice(selectedIndex,1);
+  save();
+  closePopup();
+  render();
 }
 
 /* DÜZENLE */
-function edit(i){
-  const name = prompt("Yeni isim:", data[i].name);
-  if(name){
-    data[i].name=name;
+function openEdit(i){
+  selectedIndex = i;
+
+  openPopup("Düzenleme Paneli",
+    `<input id="editInput" value="${data[i].name}">
+     <button onclick="saveEdit()">Kaydet</button>
+     <button onclick="closePopup()">İptal</button>`
+  );
+}
+
+function saveEdit(){
+  const newName = document.getElementById("editInput").value;
+
+  if(newName){
+    data[selectedIndex].name = newName;
     save();
+    closePopup();
     render();
-    showPopup("Düzenlendi");
   }
 }
 
