@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GMB Barkod Sistemi</title>
+<title>GMB</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 
@@ -12,174 +12,159 @@ body { font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; 
 .page { background:white; padding:20px; border-radius:10px; max-width:400px; margin:auto; }
 .hidden { display:none; }
 input { width:90%; padding:10px; margin:5px; }
-button { padding:10px; width:100%; margin:5px 0; cursor:pointer; }
+button { padding:10px; width:100%; margin:5px 0; }
 .item { background:#fff; margin:10px 0; padding:10px; border-radius:8px; }
 
-/* POPUP */
-#popup {
-  display:none;
-  position:fixed;
-  top:0; left:0;
-  width:100%; height:100%;
-  background:rgba(0,0,0,0.5);
-}
-#popupBox {
-  background:white;
-  padding:20px;
-  border-radius:10px;
-  width:80%;
-  margin:50% auto;
-}
+#popup {display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);}
+#popupBox {background:white; padding:20px; margin:60% auto; width:80%; border-radius:10px;}
 </style>
 </head>
 
 <body>
 
+<!-- ANA -->
 <div id="home" class="page">
-<h2>📦 GMB Barkod Sistemi</h2>
+<h2>📦 GMB</h2>
 
 <input id="barcode" placeholder="Barkod">
 <input id="name" placeholder="Ürün adı">
 
 <button onclick="add()">Kaydet</button>
 <button onclick="showList()">Liste</button>
+<button onclick="showScale()">⚖️ Terazi</button>
 </div>
 
+<!-- LİSTE -->
 <div id="list" class="page hidden">
 <h2>📋 Liste</h2>
-<input id="search" placeholder="Ara..." oninput="render()">
 <button onclick="back()">← Geri</button>
 <div id="items"></div>
+</div>
+
+<!-- TERAZİ -->
+<div id="scale" class="page hidden">
+<h2>⚖️ Terazi</h2>
+
+<input id="s_name" placeholder="Ürün adı">
+<input id="s_price" placeholder="Kg fiyatı">
+<input id="s_code" placeholder="Kod (3-4 hane)">
+<input id="s_gram" placeholder="Gramaj">
+
+<button onclick="calc()">Hesapla</button>
+<button onclick="back()">← Geri</button>
+
+<div id="result"></div>
 </div>
 
 <!-- POPUP -->
 <div id="popup">
   <div id="popupBox">
-    <p id="popupTitle"></p>
-    <div id="popupContent"></div>
+    <p id="popupText"></p>
+    <button onclick="closePopup()">Tamam</button>
   </div>
 </div>
 
 <script>
 
 let data = JSON.parse(localStorage.getItem("gmb")) || [];
-let selectedIndex = null;
 
-function save() {
-  localStorage.setItem("gmb", JSON.stringify(data));
+function save(){ localStorage.setItem("gmb", JSON.stringify(data)); }
+
+function showPopup(t){
+  popupText.innerText = t;
+  popup.style.display = "block";
 }
+function closePopup(){ popup.style.display="none"; }
 
-/* POPUP GENEL */
-function openPopup(title, contentHTML){
-  document.getElementById("popupTitle").innerText = title;
-  document.getElementById("popupContent").innerHTML = contentHTML;
-  document.getElementById("popup").style.display = "block";
-}
+/* ANA EKLE */
+function add(){
+  let code = barcode.value;
+  let name = nameInput = document.getElementById("name").value;
 
-function closePopup(){
-  document.getElementById("popup").style.display = "none";
-}
+  if(!code || !name) return showPopup("Boş bırakma");
 
-/* EKLE */
-function add() {
-  const code = barcode.value;
-  const name = document.getElementById("name").value;
+  if(data.find(x=>x.code===code)) return showPopup("Zaten var");
 
-  if(!code || !name) return openPopup("Uyarı","<p>Boş alan bırakma</p><button onclick='closePopup()'>Tamam</button>");
-
-  if(data.find(x => x.code === code))
-    return openPopup("Uyarı","<p>Bu barkod zaten kayıtlı</p><button onclick='closePopup()'>Tamam</button>");
-
-  data.push({code, name});
+  data.push({code,name});
   save();
 
-  openPopup("Başarılı","<p>Kayıt eklendi</p><button onclick='closePopup()'>Tamam</button>");
+  showPopup("Eklendi");
 
-  barcode.value = "";
-  document.getElementById("name").value = "";
+  barcode.value="";
+  document.getElementById("name").value="";
 }
 
 /* SAYFA */
-function showList() {
+function showList(){
   home.classList.add("hidden");
   list.classList.remove("hidden");
   render();
 }
-function back() {
+function showScale(){
+  home.classList.add("hidden");
+  scale.classList.remove("hidden");
+}
+function back(){
   list.classList.add("hidden");
+  scale.classList.add("hidden");
   home.classList.remove("hidden");
 }
 
 /* LİSTE */
-function render() {
-  const q = search.value.toLowerCase();
-  items.innerHTML = "";
-
-  data.filter(x => x.name.toLowerCase().includes(q))
-  .forEach((item,i)=>{
-    const btn = document.createElement("button");
-    btn.textContent = item.name;
-    btn.onclick = () => showDetail(i);
-    items.appendChild(btn);
+function render(){
+  items.innerHTML="";
+  data.forEach((x,i)=>{
+    let b=document.createElement("button");
+    b.textContent=x.name;
+    b.onclick=()=>detail(i);
+    items.appendChild(b);
   });
 }
 
-/* DETAY */
-function showDetail(i){
-  const item = data[i];
-  items.innerHTML = "";
-
-  const id = "b"+i;
-
-  items.innerHTML = `
-    <div class="item">
-      <svg id="${id}"></svg>
-      <p>${item.code} - ${item.name}</p>
-      <button onclick="askDelete(${i})">Sil</button>
-      <button onclick="openEdit(${i})">Düzenle</button>
-      <button onclick="render()">← Listeye Dön</button>
-    </div>
+function detail(i){
+  let x=data[i];
+  items.innerHTML=`
+  <svg id="b"></svg>
+  <p>${x.code} - ${x.name}</p>
+  <button onclick="del(${i})">Sil</button>
+  <button onclick="render()">←</button>
   `;
-
-  JsBarcode("#"+id, item.code, {displayValue:false});
+  JsBarcode("#b", x.code);
 }
 
-/* SİL */
-function askDelete(i){
-  selectedIndex = i;
-  openPopup("Silinsin mi?",
-    `<button onclick="confirmDelete()">Evet</button>
-     <button onclick="closePopup()">Hayır</button>`
-  );
-}
-
-function confirmDelete(){
-  data.splice(selectedIndex,1);
-  save();
-  closePopup();
-  render();
-}
-
-/* DÜZENLE */
-function openEdit(i){
-  selectedIndex = i;
-
-  openPopup("Düzenleme Paneli",
-    `<input id="editInput" value="${data[i].name}">
-     <button onclick="saveEdit()">Kaydet</button>
-     <button onclick="closePopup()">İptal</button>`
-  );
-}
-
-function saveEdit(){
-  const newName = document.getElementById("editInput").value;
-
-  if(newName){
-    data[selectedIndex].name = newName;
+function del(i){
+  if(confirm("Silinsin mi?")){
+    data.splice(i,1);
     save();
-    closePopup();
     render();
   }
+}
+
+/* TERAZİ HESAP */
+function calc(){
+  let name=s_name.value;
+  let price=parseFloat(s_price.value);
+  let code=s_code.value;
+  let gram=parseFloat(s_gram.value);
+
+  if(!name||!price||!code||!gram) return showPopup("Boş bırakma");
+
+  let fullCode;
+
+  if(code.length==3) fullCode="2700"+code;
+  else if(code.length==4) fullCode="270"+code;
+  else return showPopup("Kod 3 veya 4 haneli olmalı");
+
+  let total=(gram/1000)*price;
+
+  result.innerHTML=`
+    <p>${name}</p>
+    <p>Kod: ${fullCode}</p>
+    <p>Tutar: ${total.toFixed(2)} ₺</p>
+    <svg id="bar"></svg>
+  `;
+
+  JsBarcode("#bar", fullCode);
 }
 
 </script>
