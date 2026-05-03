@@ -1,40 +1,141 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-  <title>Chat App</title>
-  <style>
-    body { font-family: Arial; margin: 20px; }
-    #messages { list-style: none; padding: 0; }
-    #messages li { padding: 8px; background: #f1f1f1; margin-bottom: 5px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GMB Barkod Sistemi</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+
+<style>
+body { font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; }
+.page { background:white; padding:20px; border-radius:10px; max-width:400px; margin:auto; }
+.hidden { display:none; }
+input { width:90%; padding:10px; margin:5px; }
+button { padding:10px; width:100%; margin:5px 0; cursor:pointer; }
+.item { background:#fff; margin:10px 0; padding:10px; border-radius:8px; }
+</style>
 </head>
+
 <body>
 
-<h2>Chat Uygulaması</h2>
+<div id="home" class="page">
+<h2>📦 GMB Barkod Sistemi</h2>
 
-<input id="msg" placeholder="Mesaj yaz">
-<button onclick="send()">Gönder</button>
+<input id="barcode" placeholder="Barkod">
+<input id="name" placeholder="Ürün adı">
 
-<ul id="messages"></ul>
+<button onclick="add()">Kaydet</button>
+<button onclick="showList()">Liste</button>
+<button onclick="exportData()">Yedek Al</button>
+<input type="file" onchange="importData(event)">
 
-<script src="/socket.io/socket.io.js"></script>
+</div>
+
+<div id="list" class="page hidden">
+<h2>📋 Liste</h2>
+<input id="search" placeholder="Ara..." oninput="render()">
+<button onclick="back()">← Geri</button>
+
+<div id="items"></div>
+</div>
+
 <script>
-  const socket = io();
 
-  const input = document.getElementById("msg");
-  const messages = document.getElementById("messages");
+let data = JSON.parse(localStorage.getItem("gmb")) || [];
 
-  function send() {
-    const text = input.value;
-    socket.emit("chat message", text);
-    input.value = "";
-  }
+function save() {
+  localStorage.setItem("gmb", JSON.stringify(data));
+}
 
-  socket.on("chat message", function(msg) {
-    const li = document.createElement("li");
-    li.textContent = msg;
-    messages.appendChild(li);
+function add() {
+  const code = document.getElementById("barcode").value;
+  const name = document.getElementById("name").value;
+
+  if(!code || !name) return alert("Boş bırakma");
+
+  if(data.find(x => x.code === code))
+    return alert("Bu barkod zaten var!");
+
+  data.push({code, name});
+  save();
+  alert("Eklendi");
+}
+
+function showList() {
+  document.getElementById("home").classList.add("hidden");
+  document.getElementById("list").classList.remove("hidden");
+  render();
+}
+
+function back() {
+  document.getElementById("list").classList.add("hidden");
+  document.getElementById("home").classList.remove("hidden");
+}
+
+function render() {
+  const q = document.getElementById("search").value.toLowerCase();
+  const div = document.getElementById("items");
+  div.innerHTML = "";
+
+  data.filter(x => x.name.toLowerCase().includes(q))
+  .forEach((item,i)=>{
+    const el = document.createElement("div");
+    el.className="item";
+
+    const id = "b"+i;
+
+    el.innerHTML=`
+      <svg id="${id}"></svg>
+      <p>${item.code} - ${item.name}</p>
+      <button onclick="del(${i})">Sil</button>
+      <button onclick="edit(${i})">Düzenle</button>
+    `;
+
+    div.appendChild(el);
+
+    JsBarcode("#"+id, item.code, {displayValue:false});
   });
+}
+
+function del(i){
+  if(confirm("Silinsin mi?")){
+    data.splice(i,1);
+    save();
+    render();
+  }
+}
+
+function edit(i){
+  const name = prompt("Yeni isim:", data[i].name);
+  if(name){
+    data[i].name=name;
+    save();
+    render();
+  }
+}
+
+function exportData(){
+  const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "gmb.json";
+  a.click();
+}
+
+function importData(e){
+  const file = e.target.files[0];
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    data = JSON.parse(reader.result);
+    save();
+    alert("Yüklendi");
+  };
+
+  reader.readAsText(file);
+}
+
 </script>
 
 </body>
