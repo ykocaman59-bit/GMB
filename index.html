@@ -1,8 +1,13 @@
-<!DOCTYPE html><html lang="tr">
+<!DOCTYPE html>
+<html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GMB</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script><style>
+<title>GMB</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+
+<style>
 body { font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; }
 .page { background:white; padding:20px; border-radius:10px; max-width:420px; margin:auto; }
 .hidden { display:none; }
@@ -38,56 +43,96 @@ border-radius:10px;
 width:80%;
 max-width:300px;
 }
-</style></head><body><!-- ANA --><div id="home" class="page">
-<h2>📦 GMB</h2><input id="barcode" placeholder="Barkod">
-<input id="name" placeholder="Ürün adı"><button onclick="add()">Kaydet</button> <button onclick="showList()">Liste</button>
+</style>
+</head>
 
-</div><!-- LİSTE --><div id="list" class="page hidden">
+<body>
+
+<!-- ANA -->
+<div id="home" class="page">
+<h2>📦 GMB</h2>
+
+<input id="barcode" placeholder="Barkod">
+<input id="name" placeholder="Ürün adı">
+
+<button onclick="add()">Kaydet</button>
+<button onclick="showList()">Liste</button>
+<button onclick="showScale()">⚖️ Terazi</button>
+</div>
+
+<!-- LİSTE -->
+<div id="list" class="page hidden">
 <h2>📋 Liste</h2>
 <button onclick="goHome()">← Geri</button>
 <div id="items"></div>
-</div><!-- TERAZİ MENÜ --><div id="scaleMenu" class="page hidden">
+</div>
+
+<!-- TERAZİ MENÜ -->
+<div id="scaleMenu" class="page hidden">
 <h2>⚖️ Terazi</h2>
 <button onclick="openRegister()">📦 Ürün Kayıt</button>
 <button onclick="openScaleList()">📋 Kod Listesi</button>
 <button onclick="openCalc()">🧮 Hesaplama</button>
 <button onclick="goHome()">← Geri</button>
-</div><!-- KAYIT --><div id="register" class="page hidden">
-<h3>📦 Ürün Kayıt</h3>
+</div>
+
+<!-- TERAZİ KAYIT -->
+<div id="register" class="page hidden">
+<h3>📦 Terazi Kayıt</h3>
+
 <input id="s_name" placeholder="Ürün adı">
 <input id="s_code" placeholder="Kod" oninput="updatePrefix()">
 <input id="prefix" disabled placeholder="Prefix">
 <input id="s_price" placeholder="Kg fiyatı">
+
 <button onclick="saveScale()">Kaydet</button>
 <button onclick="showScale()">← Geri</button>
-</div><!-- LİSTE --><div id="scaleListPage" class="page hidden">
+</div>
+
+<!-- TERAZİ LİSTE -->
+<div id="scaleListPage" class="page hidden">
 <h3>📋 Terazi Listesi</h3>
 <button onclick="showScale()">← Geri</button>
 <div id="scaleList"></div>
-</div><!-- HESAP --><div id="calc" class="page hidden">
+</div>
+
+<!-- HESAP -->
+<div id="calc" class="page hidden">
 <h3>🧮 Hesaplama</h3>
+
 <input id="c_code" placeholder="Kod">
 <input id="c_gram" placeholder="Gram">
+
 <button onclick="calcScale()">Hesapla</button>
 <button onclick="showScale()">← Geri</button>
+
 <div id="result"></div>
-</div><!-- MESAJ --><div id="msg"></div><!-- MODAL (SİL ONAY) --><div id="modal">
+</div>
+
+<!-- MESAJ -->
+<div id="msg"></div>
+
+<!-- MODAL -->
+<div id="modal">
   <div id="modalBox">
     <p id="modalText"></p>
-    <button onclick="modalYes()">Evet</button>
+    <button onclick="confirmYes()">Evet</button>
     <button onclick="closeModal()">Hayır</button>
   </div>
-</div><script>
+</div>
+
+<script>
 
 let data = JSON.parse(localStorage.getItem("gmb")) || [];
 let scaleData = JSON.parse(localStorage.getItem("scale")) || [];
 
 let deleteIndex = null;
-let deleteMode = "normal";
+let deleteType = null;
 
 function save(){ localStorage.setItem("gmb", JSON.stringify(data)); }
-function saveScaleData(){ localStorage.setItem("scale", JSON.stringify(scaleData)); }
+function saveScale(){ localStorage.setItem("scale", JSON.stringify(scaleData)); }
 
+// ---------------- MESAJ ----------------
 function msg(t){
   let m=document.getElementById("msg");
   m.innerText=t;
@@ -95,33 +140,45 @@ function msg(t){
   setTimeout(()=>m.style.display="none",2000);
 }
 
+// ---------------- SAYFA ----------------
 function hideAll(){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
 }
 
-function goHome(){ hideAll(); home.classList.remove("hidden"); }
+function goHome(){
+  hideAll();
+  home.classList.remove("hidden");
+}
+
+function showList(){
+  hideAll();
+  list.classList.remove("hidden");
+  render();
+}
+
+function showScale(){
+  hideAll();
+  scaleMenu.classList.remove("hidden");
+}
 
 // ---------------- NORMAL ----------------
 function add(){
-  let code=barcode.value;
-  let name=document.getElementById("name").value;
+  let code = barcode.value;
+  let name = document.getElementById("name").value;
 
-  if(!code||!name) return msg("Boş bırakma");
+  if(!code || !name) return msg("Boş bırakma");
 
   data.push({code,name});
   save();
 
   barcode.value="";
-  document.getElementById("name").value="";
+  name.value="";
 
   msg("Ürün eklendi");
 }
 
-function showList(){ hideAll(); list.classList.remove("hidden"); render(); }
-
 function render(){
   items.innerHTML="";
-
   data.forEach((x,i)=>{
     let b=document.createElement("button");
     b.textContent=x.name;
@@ -151,40 +208,50 @@ function editNormal(i){
   let c=prompt("Kod",data[i].code);
   if(!n||!c) return;
   data[i]={name:n,code:c};
-  save();render();msg("Güncellendi");
+  save();
+  render();
+  msg("Güncellendi");
 }
 
-// ---------------- MODAL ----------------
-function askDelete(i,mode){
+// ---------------- MODAL SİLME ----------------
+function askDelete(i,type){
   deleteIndex=i;
-  deleteMode=mode;
-  modalText.innerText="Silinsin mi?";
+  deleteType=type;
+  modalText.innerText="Silmek istediğine emin misin?";
   modal.style.display="flex";
 }
 
-function modalYes(){
-  if(deleteMode=="normal"){
+function confirmYes(){
+  if(deleteType==="normal"){
     data.splice(deleteIndex,1);
     save();
     render();
   } else {
     scaleData.splice(deleteIndex,1);
-    saveScaleData();
+    saveScale();
     renderScale();
   }
   closeModal();
   msg("Silindi");
 }
 
-function closeModal(){ modal.style.display="none"; }
+function closeModal(){
+  modal.style.display="none";
+}
 
 // ---------------- TERAZİ ----------------
-function showScale(){ hideAll(); scaleMenu.classList.remove("hidden"); }
+function getPrefix(code){
+  return code.length<=3 ? "2700" : "270";
+}
 
-function getPrefix(code){ return code.length<=3?"2700":"270"; }
-function updatePrefix(){ prefix.value=getPrefix(s_code.value); }
+function updatePrefix(){
+  prefix.value = getPrefix(s_code.value);
+}
 
-function openRegister(){ hideAll(); register.classList.remove("hidden"); }
+function openRegister(){
+  hideAll();
+  register.classList.remove("hidden");
+}
 
 function saveScale(){
   let name=s_name.value;
@@ -193,21 +260,26 @@ function saveScale(){
 
   if(!name||!code||!price) return msg("Boş bırakma");
 
-  let fullCode=getPrefix(code)+code;
+  scaleData.push({
+    name,
+    code,
+    fullCode:getPrefix(code)+code,
+    price
+  });
 
-  scaleData.push({name,code,fullCode,price});
-  saveScaleData();
+  saveScale();
 
   s_name.value="";
-s_code.value="";
-s_price.value="";
-prefix.value="";
+  s_code.value="";
+  s_price.value="";
+  prefix.value="";
 
-msg("Kaydedildi");
+  msg("Kaydedildi");
 }
 
 function openScaleList(){
-  hideAll(); scaleListPage.classList.remove("hidden");
+  hideAll();
+  scaleListPage.classList.remove("hidden");
   renderScale();
 }
 
@@ -222,6 +294,7 @@ function renderScale(){
       <b>${x.name}</b><br>
       ${x.fullCode}<br>
       ${x.price} ₺<br>
+
       <button onclick="editScale(${i})">Düzenle</button>
       <button onclick="askDelete(${i},'scale')">Sil</button>
     `;
@@ -234,17 +307,30 @@ function editScale(i){
   let n=prompt("Ad",scaleData[i].name);
   let c=prompt("Kod",scaleData[i].code);
   let p=prompt("Fiyat",scaleData[i].price);
+
   if(!n||!c||!p) return;
-  scaleData[i]={name:n,code:c,fullCode:getPrefix(c)+c,price:p};
-  saveScaleData();renderScale();msg("Güncellendi");
+
+  scaleData[i]={
+    name:n,
+    code:c,
+    fullCode:getPrefix(c)+c,
+    price:p
+  };
+
+  saveScale();
+  renderScale();
+  msg("Güncellendi");
 }
 
-function openCalc(){ hideAll(); calc.classList.remove("hidden"); result.innerHTML=""; }
+// ---------------- HESAP ----------------
+function openCalc(){
+  hideAll();
+  calc.classList.remove("hidden");
+  result.innerHTML="";
+}
 
 function generateBarcode(code,gram){
-  let p=code.padStart(4,"0");
-  let g=Math.round(gram).toString().padStart(3,"0");
-  return getPrefix(code)+p+g;
+  return getPrefix(code) + code.padStart(4,"0") + Math.round(gram).toString().padStart(3,"0");
 }
 
 function calcScale(){
@@ -270,5 +356,7 @@ function calcScale(){
   JsBarcode("#bar",bar);
 }
 
-</script></body>
+</script>
+
+</body>
 </html>
