@@ -14,6 +14,18 @@ body { font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; 
 input { width:90%; padding:10px; margin:5px; }
 button { padding:10px; width:100%; margin:5px 0; }
 .item { background:#eee; margin:8px 0; padding:10px; border-radius:8px; }
+
+#msg {
+position:fixed;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+background:#222;
+color:#fff;
+padding:10px 20px;
+border-radius:8px;
+display:none;
+}
 </style>
 </head>
 
@@ -34,7 +46,7 @@ button { padding:10px; width:100%; margin:5px 0; }
 <!-- NORMAL LİSTE -->
 <div id="list" class="page hidden">
 <h2>📋 Liste</h2>
-<button onclick="backHome()">← Geri</button>
+<button onclick="goHome()">← Geri</button>
 <div id="items"></div>
 </div>
 
@@ -44,7 +56,7 @@ button { padding:10px; width:100%; margin:5px 0; }
 <button onclick="openRegister()">📦 Ürün Kayıt</button>
 <button onclick="openScaleList()">📋 Kod Listesi</button>
 <button onclick="openCalc()">🧮 Hesaplama</button>
-<button onclick="backHome()">← Geri</button>
+<button onclick="goHome()">← Geri</button>
 </div>
 
 <!-- TERAZİ KAYIT -->
@@ -75,71 +87,114 @@ button { padding:10px; width:100%; margin:5px 0; }
 <input id="c_code" placeholder="Kod">
 <input id="c_gram" placeholder="Gram">
 
-<button onclick="calc()">Hesapla</button>
+<button onclick="calcScale()">Hesapla</button>
 <button onclick="showScale()">← Geri</button>
 
 <div id="result"></div>
 </div>
 
+<div id="msg"></div>
+
 <script>
 
-// ---------------- NORMAL ----------------
+// DATA
 let data = JSON.parse(localStorage.getItem("gmb")) || [];
 let scaleData = JSON.parse(localStorage.getItem("scale")) || [];
 
 function save(){ localStorage.setItem("gmb", JSON.stringify(data)); }
 function saveScaleData(){ localStorage.setItem("scale", JSON.stringify(scaleData)); }
 
-function add(){
-  let code = document.getElementById("barcode").value;
-  let name = document.getElementById("name").value;
+// MESSAGE
+function msg(t){
+  let m = document.getElementById("msg");
+  m.innerText = t;
+  m.style.display = "block";
+  setTimeout(()=>m.style.display="none",2000);
+}
 
-  if(!code || !name) return alert("Boş bırakma");
+// PAGE
+function hideAll(){
+  document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
+}
 
-  data.push({code,name});
-  save();
-
-  document.getElementById("barcode").value="";
-  document.getElementById("name").value="";
-
-  alert("Ürün eklendi");
+function goHome(){
+  hideAll();
+  home.classList.remove("hidden");
 }
 
 function showList(){
-  home.classList.add("hidden");
+  hideAll();
   list.classList.remove("hidden");
   render();
 }
 
-function backHome(){
-  document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
-  home.classList.remove("hidden");
+function showScale(){
+  hideAll();
+  scaleMenu.classList.remove("hidden");
+}
+
+// NORMAL
+function add(){
+  let code = barcode.value;
+  let name = document.getElementById("name").value;
+
+  if(!code || !name) return msg("Boş bırakma");
+
+  data.push({code,name});
+  save();
+
+  barcode.value="";
+  name.value="";
+
+  msg("Ürün eklendi");
 }
 
 function render(){
   items.innerHTML="";
-  data.forEach(x=>{
-    let div=document.createElement("div");
-    div.className="item";
-
-    div.innerHTML = `
-      <b>${x.name}</b>
-      <svg id="b${x.code}"></svg>
-    `;
-
-    items.appendChild(div);
-    JsBarcode(`#b${x.code}`, x.code);
+  data.forEach((x,i)=>{
+    let b=document.createElement("button");
+    b.textContent=x.name;
+    b.onclick=()=>detail(i);
+    items.appendChild(b);
   });
 }
 
-// ---------------- TERAZİ ----------------
+function detail(i){
+  let x=data[i];
 
-function showScale(){
-  document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
-  scaleMenu.classList.remove("hidden");
+  items.innerHTML=`
+    <svg id="b"></svg>
+    <p>${x.code}</p>
+    <p>${x.name}</p>
+
+    <button onclick="edit(${i})">Düzenle</button>
+    <button onclick="del(${i})">Sil</button>
+    <button onclick="render()">←</button>
+  `;
+
+  JsBarcode("#b", x.code);
 }
 
-// PREFIX
+function del(i){
+  data.splice(i,1);
+  save();
+  render();
+  msg("Silindi");
+}
+
+function edit(i){
+  let newName = prompt("Yeni ürün adı", data[i].name);
+  let newCode = prompt("Yeni barkod", data[i].code);
+
+  if(!newName || !newCode) return;
+
+  data[i] = {name:newName, code:newCode};
+  save();
+  render();
+  msg("Güncellendi");
+}
+
+// TERAZİ
 function getPrefix(code){
   if(code.length<=3) return "2700";
   if(code.length==4) return "270";
@@ -150,18 +205,17 @@ function updatePrefix(){
   prefix.value = getPrefix(s_code.value);
 }
 
-// KAYIT
 function openRegister(){
-  scaleMenu.classList.add("hidden");
+  hideAll();
   register.classList.remove("hidden");
 }
 
 function saveScale(){
   let name = s_name.value;
   let code = s_code.value;
-  let price = s_price.value;
+  let price = parseFloat(s_price.value);
 
-  if(!name || !code || !price) return alert("Boş bırakma");
+  if(!name || !code || !price) return msg("Boş bırakma");
 
   let fullCode = getPrefix(code) + code;
 
@@ -173,26 +227,24 @@ function saveScale(){
   s_price.value="";
   prefix.value="";
 
-  alert("Kaydedildi");
+  msg("Kaydedildi");
 }
 
-// LİSTE
 function openScaleList(){
-  scaleMenu.classList.add("hidden");
+  hideAll();
   scaleListPage.classList.remove("hidden");
 
   scaleList.innerHTML="";
   scaleData.forEach(x=>{
     let div=document.createElement("div");
     div.className="item";
-    div.innerHTML = `${x.name}<br>${x.fullCode}<br>${x.price}₺`;
+    div.innerHTML=`${x.name}<br>${x.fullCode}<br>${x.price} ₺`;
     scaleList.appendChild(div);
   });
 }
 
-// HESAP
 function openCalc(){
-  scaleMenu.classList.add("hidden");
+  hideAll();
   calc.classList.remove("hidden");
   result.innerHTML="";
 }
@@ -204,22 +256,22 @@ function generateBarcode(code, gram){
   return prefix + p + g;
 }
 
-function calc(){
+function calcScale(){
   let code = c_code.value;
   let gram = parseFloat(c_gram.value);
 
-  if(!code || !gram) return alert("Boş bırakma");
+  if(!code || !gram) return msg("Boş bırakma");
 
   let product = scaleData.find(x=>x.code==code);
-  if(!product) return alert("Ürün yok");
+  if(!product) return msg("Ürün yok");
 
-  let total = (gram/1000) * parseFloat(product.price);
+  let total = (gram/1000) * product.price;
   let barcode = generateBarcode(code, gram);
 
   result.innerHTML = `
     <h3>${product.name}</h3>
     <p>${barcode}</p>
-    <p>${gram}g</p>
+    <p>${gram} g</p>
     <p>${total.toFixed(2)} ₺</p>
     <svg id="bar"></svg>
   `;
