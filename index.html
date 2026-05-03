@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GMB</title>
+<title>GMB POS</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 
@@ -11,8 +11,10 @@
 body { font-family: Arial; background:#f4f4f4; text-align:center; padding:20px; }
 .page { background:white; padding:20px; border-radius:10px; max-width:420px; margin:auto; }
 .hidden { display:none; }
+
 input { width:90%; padding:10px; margin:5px; }
 button { padding:10px; width:100%; margin:5px 0; }
+
 .item { background:#eee; margin:8px 0; padding:10px; border-radius:8px; }
 
 #msg {
@@ -50,63 +52,48 @@ max-width:300px;
 
 <!-- ANA -->
 <div id="home" class="page">
-<h2>📦 GMB</h2>
+<h2>📦 GMB POS</h2>
 
 <input id="barcode" placeholder="Barkod">
 <input id="name" placeholder="Ürün adı">
 
-<button onclick="add()">Kaydet</button>
-<button onclick="showList()">Liste</button>
-<button onclick="showScale()">⚖️ Terazi</button>
+<button onclick="addProduct()">Kaydet</button>
+<button onclick="openList()">Liste</button>
+<button onclick="openScaleMenu()">⚖️ Terazi</button>
 </div>
 
 <!-- LİSTE -->
-<div id="list" class="page hidden">
+<div id="listPage" class="page hidden">
 <h2>📋 Liste</h2>
 <button onclick="goHome()">← Geri</button>
-<div id="items"></div>
+<div id="list"></div>
 </div>
 
 <!-- TERAZİ MENÜ -->
 <div id="scaleMenu" class="page hidden">
 <h2>⚖️ Terazi</h2>
-<button onclick="openRegister()">📦 Ürün Kayıt</button>
-<button onclick="openScaleList()">📋 Kod Listesi</button>
-<button onclick="openCalc()">🧮 Hesaplama</button>
+<button onclick="openScaleRegister()">📦 Kayıt</button>
+<button onclick="openScaleList()">📋 Liste</button>
 <button onclick="goHome()">← Geri</button>
 </div>
 
 <!-- TERAZİ KAYIT -->
-<div id="register" class="page hidden">
+<div id="scaleRegister" class="page hidden">
 <h3>📦 Terazi Kayıt</h3>
 
 <input id="s_name" placeholder="Ürün adı">
-<input id="s_code" placeholder="Kod" oninput="updatePrefix()">
-<input id="prefix" disabled placeholder="Prefix">
+<input id="s_code" placeholder="Kod">
 <input id="s_price" placeholder="Kg fiyatı">
 
 <button onclick="saveScale()">Kaydet</button>
-<button onclick="showScale()">← Geri</button>
+<button onclick="openScaleMenu()">← Geri</button>
 </div>
 
 <!-- TERAZİ LİSTE -->
 <div id="scaleListPage" class="page hidden">
 <h3>📋 Terazi Listesi</h3>
-<button onclick="showScale()">← Geri</button>
+<button onclick="openScaleMenu()">← Geri</button>
 <div id="scaleList"></div>
-</div>
-
-<!-- HESAP -->
-<div id="calc" class="page hidden">
-<h3>🧮 Hesaplama</h3>
-
-<input id="c_code" placeholder="Kod">
-<input id="c_gram" placeholder="Gram">
-
-<button onclick="calcScale()">Hesapla</button>
-<button onclick="showScale()">← Geri</button>
-
-<div id="result"></div>
 </div>
 
 <!-- MESAJ -->
@@ -115,24 +102,31 @@ max-width:300px;
 <!-- MODAL -->
 <div id="modal">
   <div id="modalBox">
-    <p id="modalText"></p>
-    <button onclick="confirmYes()">Evet</button>
+    <p id="modalText">Silinsin mi?</p>
+    <button onclick="confirmDelete()">Evet</button>
     <button onclick="closeModal()">Hayır</button>
   </div>
 </div>
 
 <script>
 
-let data = JSON.parse(localStorage.getItem("gmb")) || [];
-let scaleData = JSON.parse(localStorage.getItem("scale")) || [];
+// ---------------- DATA ----------------
+let products = JSON.parse(localStorage.getItem("products")) || [];
+let scales = JSON.parse(localStorage.getItem("scales")) || [];
 
-let deleteIndex = null;
-let deleteType = null;
+let delIndex = null;
+let delType = null;
 
-function save(){ localStorage.setItem("gmb", JSON.stringify(data)); }
-function saveScale(){ localStorage.setItem("scale", JSON.stringify(scaleData)); }
+// ---------------- SAVE ----------------
+function saveProducts(){
+  localStorage.setItem("products", JSON.stringify(products));
+}
 
-// ---------------- MESAJ ----------------
+function saveScales(){
+  localStorage.setItem("scales", JSON.stringify(scales));
+}
+
+// ---------------- MESSAGE ----------------
 function msg(t){
   let m=document.getElementById("msg");
   m.innerText=t;
@@ -140,7 +134,7 @@ function msg(t){
   setTimeout(()=>m.style.display="none",2000);
 }
 
-// ---------------- SAYFA ----------------
+// ---------------- NAV ----------------
 function hideAll(){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
 }
@@ -150,26 +144,17 @@ function goHome(){
   home.classList.remove("hidden");
 }
 
-function showList(){
-  hideAll();
-  list.classList.remove("hidden");
-  render();
-}
-
-function showScale(){
-  hideAll();
-  scaleMenu.classList.remove("hidden");
-}
-
-// ---------------- NORMAL ----------------
-function add(){
-  let code = barcode.value;
-  let name = document.getElementById("name").value;
+// ---------------- NORMAL PRODUCT ----------------
+function addProduct(){
+  let code = barcode.value.trim();
+  let name = document.getElementById("name").value.trim();
 
   if(!code || !name) return msg("Boş bırakma");
 
-  data.push({code,name});
-  save();
+  if(products.some(p=>p.code===code)) return msg("Bu barkod zaten var");
+
+  products.push({code,name});
+  saveProducts();
 
   barcode.value="";
   name.value="";
@@ -177,60 +162,57 @@ function add(){
   msg("Ürün eklendi");
 }
 
-function render(){
-  items.innerHTML="";
-  data.forEach((x,i)=>{
+// ---------------- LIST ----------------
+function openList(){
+  hideAll();
+  listPage.classList.remove("hidden");
+  renderProducts();
+}
+
+function renderProducts(){
+  list.innerHTML="";
+
+  products.forEach((p,i)=>{
     let b=document.createElement("button");
-    b.textContent=x.name;
-    b.onclick=()=>detail(i);
-    items.appendChild(b);
+    b.textContent=p.name;
+    b.onclick=()=>showProduct(i);
+    list.appendChild(b);
   });
 }
 
-function detail(i){
-  let x=data[i];
+function showProduct(i){
+  let p=products[i];
 
-  items.innerHTML=`
-    <svg id="b"></svg>
-    <p>${x.code}</p>
-    <p>${x.name}</p>
+  list.innerHTML=`
+    <svg id="bc"></svg>
+    <p>${p.code}</p>
+    <p>${p.name}</p>
 
-    <button onclick="editNormal(${i})">Düzenle</button>
-    <button onclick="askDelete(${i},'normal')">Sil</button>
-    <button onclick="render()">←</button>
+    <button onclick="askDelete(${i},'product')">Sil</button>
+    <button onclick="renderProducts()">←</button>
   `;
 
-  JsBarcode("#b", x.code);
+  JsBarcode("#bc", p.code);
 }
 
-function editNormal(i){
-  let n=prompt("Ad",data[i].name);
-  let c=prompt("Kod",data[i].code);
-  if(!n||!c) return;
-  data[i]={name:n,code:c};
-  save();
-  render();
-  msg("Güncellendi");
-}
-
-// ---------------- MODAL SİLME ----------------
+// ---------------- DELETE MODAL ----------------
 function askDelete(i,type){
-  deleteIndex=i;
-  deleteType=type;
-  modalText.innerText="Silmek istediğine emin misin?";
+  delIndex=i;
+  delType=type;
   modal.style.display="flex";
 }
 
-function confirmYes(){
-  if(deleteType==="normal"){
-    data.splice(deleteIndex,1);
-    save();
-    render();
+function confirmDelete(){
+  if(delType==="product"){
+    products.splice(delIndex,1);
+    saveProducts();
+    renderProducts();
   } else {
-    scaleData.splice(deleteIndex,1);
-    saveScale();
-    renderScale();
+    scales.splice(delIndex,1);
+    saveScales();
+    renderScales();
   }
+
   closeModal();
   msg("Silindi");
 }
@@ -239,121 +221,72 @@ function closeModal(){
   modal.style.display="none";
 }
 
-// ---------------- TERAZİ ----------------
-function getPrefix(code){
+// ---------------- SCALE ----------------
+function openScaleMenu(){
+  hideAll();
+  scaleMenu.classList.remove("hidden");
+}
+
+function openScaleRegister(){
+  hideAll();
+  scaleRegister.classList.remove("hidden");
+}
+
+// PREFIX RULE
+function prefix(code){
   return code.length<=3 ? "2700" : "270";
 }
 
-function updatePrefix(){
-  prefix.value = getPrefix(s_code.value);
-}
-
-function openRegister(){
-  hideAll();
-  register.classList.remove("hidden");
-}
-
+// ---------------- SCALE SAVE ----------------
 function saveScale(){
-  let name=s_name.value;
-  let code=s_code.value;
+  let name=s_name.value.trim();
+  let code=s_code.value.trim();
   let price=parseFloat(s_price.value);
 
   if(!name||!code||!price) return msg("Boş bırakma");
 
-  scaleData.push({
+  if(scales.some(s=>s.code===code)) return msg("Zaten kayıtlı");
+
+  scales.push({
     name,
     code,
-    fullCode:getPrefix(code)+code,
+    full: prefix(code)+code,
     price
   });
 
-  saveScale();
+  saveScales();
 
   s_name.value="";
   s_code.value="";
   s_price.value="";
-  prefix.value="";
 
   msg("Kaydedildi");
 }
 
+// ---------------- SCALE LIST ----------------
 function openScaleList(){
   hideAll();
   scaleListPage.classList.remove("hidden");
-  renderScale();
+  renderScales();
 }
 
-function renderScale(){
+function renderScales(){
   scaleList.innerHTML="";
 
-  scaleData.forEach((x,i)=>{
-    let div=document.createElement("div");
-    div.className="item";
+  scales.forEach((s,i)=>{
+    let d=document.createElement("div");
+    d.className="item";
 
-    div.innerHTML=`
-      <b>${x.name}</b><br>
-      ${x.fullCode}<br>
-      ${x.price} ₺<br>
+    d.innerHTML=`
+      <b>${s.name}</b><br>
+      ${s.code}<br>
+      ${s.price} ₺<br>
 
-      <button onclick="editScale(${i})">Düzenle</button>
       <button onclick="askDelete(${i},'scale')">Sil</button>
     `;
 
-    scaleList.appendChild(div);
+    scaleList.appendChild(d);
   });
-}
-
-function editScale(i){
-  let n=prompt("Ad",scaleData[i].name);
-  let c=prompt("Kod",scaleData[i].code);
-  let p=prompt("Fiyat",scaleData[i].price);
-
-  if(!n||!c||!p) return;
-
-  scaleData[i]={
-    name:n,
-    code:c,
-    fullCode:getPrefix(c)+c,
-    price:p
-  };
-
-  saveScale();
-  renderScale();
-  msg("Güncellendi");
-}
-
-// ---------------- HESAP ----------------
-function openCalc(){
-  hideAll();
-  calc.classList.remove("hidden");
-  result.innerHTML="";
-}
-
-function generateBarcode(code,gram){
-  return getPrefix(code) + code.padStart(4,"0") + Math.round(gram).toString().padStart(3,"0");
-}
-
-function calcScale(){
-  let code=c_code.value;
-  let gram=parseFloat(c_gram.value);
-
-  if(!code||!gram) return msg("Boş bırakma");
-
-  let p=scaleData.find(x=>x.code==code);
-  if(!p) return msg("Ürün yok");
-
-  let total=(gram/1000)*p.price;
-  let bar=generateBarcode(code,gram);
-
-  result.innerHTML=`
-    <h3>${p.name}</h3>
-    <p>${bar}</p>
-    <p>${gram} g</p>
-    <p>${total.toFixed(2)} ₺</p>
-    <svg id="bar"></svg>
-  `;
-
-  JsBarcode("#bar",bar);
 }
 
 </script>
