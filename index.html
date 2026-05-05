@@ -14,6 +14,7 @@ body { font-family: Arial; background:#f4f4f4; text-align:center; }
 input { width:90%; padding:10px; margin:5px; }
 button { padding:10px; width:100%; margin:5px 0; }
 .item { background:#eee; margin:10px 0; padding:10px; border-radius:8px; }
+
 #popup {display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);}
 #popupBox {background:white; padding:20px; margin:60% auto; width:80%; border-radius:10px;}
 </style>
@@ -66,11 +67,12 @@ button { padding:10px; width:100%; margin:5px 0; }
 <div id="result"></div>
 </div>
 
+<!-- POPUP -->
 <div id="popup">
-<div id="popupBox">
-<p id="popupText"></p>
-<button onclick="closePopup()">Tamam</button>
-</div>
+  <div id="popupBox">
+    <p id="popupText"></p>
+    <div id="popupButtons"></div>
+  </div>
 </div>
 
 <script>
@@ -83,17 +85,36 @@ function save(){ localStorage.setItem("gmb", JSON.stringify(data)); }
 function saveScaleData(){ localStorage.setItem("scale", JSON.stringify(scaleData)); }
 
 // POPUP
-function showPopup(t){
-  popupText.innerText=t;
+function showPopup(text){
+  popupText.innerText = text;
+  popupButtons.innerHTML = `<button onclick="closePopup()">Tamam</button>`;
   popup.style.display="block";
 }
-function closePopup(){ popup.style.display="none"; }
+
+function showConfirm(text, yesFn){
+  popupText.innerText = text;
+  popupButtons.innerHTML = `
+    <button onclick="confirmYes()">Evet</button>
+    <button onclick="closePopup()">Hayır</button>
+  `;
+  popup.style.display="block";
+  window.confirmAction = yesFn;
+}
+
+function confirmYes(){
+  popup.style.display="none";
+  if(window.confirmAction) window.confirmAction();
+}
+
+function closePopup(){
+  popup.style.display="none";
+}
 
 // NAV
 function hideAll(){ document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden")); }
 function back(){ hideAll(); home.classList.remove("hidden"); }
 
-// NORMAL
+// NORMAL KAYIT
 function add(){
   let code=barcode.value.trim();
   let name=document.getElementById("name").value.trim();
@@ -110,7 +131,7 @@ function add(){
   showPopup("Eklendi");
 }
 
-// LIST
+// LİSTE
 function showList(){
   hideAll();
   list.classList.remove("hidden");
@@ -134,6 +155,8 @@ function detail(i){
     <svg id="b"></svg>
     <p>${x.code}</p>
     <p>${x.name}</p>
+
+    <button onclick="editItem(${i})">Düzenle</button>
     <button onclick="deleteItem(${i})">Sil</button>
     <button onclick="render()">←</button>
   `;
@@ -141,17 +164,42 @@ function detail(i){
   JsBarcode("#b", x.code);
 }
 
-// DELETE (ONAYLI)
+// SİL
 function deleteItem(i){
-  if(confirm("Silmek istediğinize emin misiniz?")){
+  showConfirm("Silmek istediğinize emin misiniz?", ()=>{
     data.splice(i,1);
     save();
     render();
     showPopup("Silindi");
-  }
+  });
 }
 
-// SCALE
+// DÜZENLE
+function editItem(i){
+  let x=data[i];
+
+  items.innerHTML=`
+    <input id="e_code" value="${x.code}">
+    <input id="e_name" value="${x.name}">
+    <button onclick="saveEdit(${i})">Kaydet</button>
+    <button onclick="render()">İptal</button>
+  `;
+}
+
+function saveEdit(i){
+  let code=document.getElementById("e_code").value;
+  let name=document.getElementById("e_name").value;
+
+  if(!code||!name) return showPopup("Boş bırakma");
+
+  data[i]={code,name};
+  save();
+  render();
+
+  showPopup("Güncellendi");
+}
+
+// TERAZİ
 function showScale(){ hideAll(); scaleMenu.classList.remove("hidden"); }
 function openRegister(){ hideAll(); register.classList.remove("hidden"); }
 
@@ -159,28 +207,20 @@ function getPrefix(code){
   return code.length<=3 ? "2700" : "270";
 }
 
-// PREFIX GÖSTER
 s_code.addEventListener("input", ()=>{
   prefixText.innerText = s_code.value.length<=3 ? "2700" : "270";
 });
 
-// SAVE SCALE
+// TERAZİ KAYDET
 function saveScale(){
-
   let name=s_name.value.trim();
   let code=s_code.value.trim();
-  let price=parseFloat(s_price.value.replace(",", "."));
+  let price=parseFloat(s_price.value.replace(",","."));
 
   if(!name||!code||!price) return showPopup("Boş bırakma");
   if(scaleData.some(x=>x.code===code)) return showPopup("Zaten kayıtlı");
 
-  scaleData.push({
-    name,
-    code,
-    price,
-    plu:getPrefix(code)+code
-  });
-
+  scaleData.push({name,code,price,plu:getPrefix(code)+code});
   saveScaleData();
 
   s_name.value="";
@@ -190,7 +230,7 @@ function saveScale(){
   showPopup("Kaydedildi");
 }
 
-// SCALE LIST
+// TERAZİ LİSTE
 function openScaleList(){
   hideAll();
   scaleListPage.classList.remove("hidden");
@@ -201,31 +241,59 @@ function renderScale(){
   scaleList.innerHTML="";
 
   scaleData.forEach((x,i)=>{
-    let div=document.createElement("div");
-    div.className="item";
+    scaleList.innerHTML+=`
+      <div class="item">
+        <b>${x.name}</b><br>
+        PLU: ${x.plu}<br>
+        ${x.price.toFixed(2)} ₺<br>
 
-    div.innerHTML=`
-      <b>${x.name}</b><br>
-      PLU: ${x.plu}<br>
-      ${x.price.toFixed(2)} ₺<br>
-      <button onclick="deleteScale(${i})">Sil</button>
+        <button onclick="editScale(${i})">Düzenle</button>
+        <button onclick="deleteScale(${i})">Sil</button>
+      </div>
     `;
-
-    scaleList.appendChild(div);
   });
 }
 
-// DELETE SCALE
+// TERAZİ SİL
 function deleteScale(i){
-  if(confirm("Silmek istediğinize emin misiniz?")){
+  showConfirm("Silmek istediğinize emin misiniz?", ()=>{
     scaleData.splice(i,1);
     saveScaleData();
     renderScale();
     showPopup("Silindi");
-  }
+  });
 }
 
-// CALC (GERÇEK TERAZİ)
+// TERAZİ DÜZENLE
+function editScale(i){
+  let x=scaleData[i];
+
+  scaleList.innerHTML=`
+    <input id="es_name" value="${x.name}">
+    <input id="es_code" value="${x.code}">
+    <input id="es_price" value="${x.price}">
+
+    <button onclick="saveEditScale(${i})">Kaydet</button>
+    <button onclick="renderScale()">İptal</button>
+  `;
+}
+
+function saveEditScale(i){
+  let name=document.getElementById("es_name").value;
+  let code=document.getElementById("es_code").value;
+  let price=parseFloat(document.getElementById("es_price").value.replace(",","."));
+
+  if(!name||!code||!price) return showPopup("Boş bırakma");
+
+  scaleData[i]={name,code,price,plu:getPrefix(code)+code};
+
+  saveScaleData();
+  renderScale();
+
+  showPopup("Güncellendi");
+}
+
+// HESAPLA
 function openCalc(){
   hideAll();
   calc.classList.remove("hidden");
@@ -233,9 +301,8 @@ function openCalc(){
 }
 
 function calcScale(){
-
   let code=c_code.value.trim();
-  let gram=parseFloat(c_gram.value.replace(",", "."));
+  let gram=parseFloat(c_gram.value.replace(",","."));
 
   if(!code||!gram) return showPopup("Boş bırakma");
 
@@ -256,7 +323,6 @@ function calcScale(){
   let check=(10-(sum%10))%10;
 
   let barcode=base+check;
-
   let total=gram*p.price;
 
   result.innerHTML=`
